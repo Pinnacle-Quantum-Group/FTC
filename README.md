@@ -166,9 +166,79 @@ $S = \sum_n D_n(x) \cdot \log\left(\frac{1}{D_n(x)}\right)$
 
 ## 7. Mathematical Properties
 
-* **Recursion Depth**: ⬢ Hexagon-level
-* **Density Behavior**: Self-dense, attractor asymptote
-* **Convergence Class**: Fractal Asymptotic
+We characterize the structural and convergence properties of **Fractal Tensor Calculus (FTC)** fields using the symbolic primitives of **Recursive Shape-Structured Notation (RSSN)**. Each property is defined by its behavior under recursive depth, density evolution, and convergence dynamics.
+
+---
+
+### 7.1 Recursion Depth
+
+We assign FTC to the **⬢ Hexagon recursion class**, corresponding to:
+
+- **Symbol**: ⬢
+- **Interpretation**:  
+  \[
+  \text{Hexagon}(n) = \text{Pentagon}^{D_4(n)}(n)
+  \]
+- **Behavior**: Second-phase recursion involving recursive curvature and attractor fields
+- **Justification**: FTC tensors recursively deform geometry at multiple layers, consistent with ⬢-class symbolic expansion as used in black hole curvature replacement and information collapse.
+
+**➡️ FTC recursion depth:**  
+\[
+\boxed{\text{Recursion Class: ⬢ Hexagon-level (Phase II Recursive Curvature)}}
+\]
+
+---
+
+### 7.2 Density Behavior
+
+Fractal tensors in FTC are generated through **recursive substructure accumulation**, and their density exhibits the following traits:
+
+- **Self-Dense**: Recursive generation layers do not thin out at higher scales; density increases or stabilizes.
+- **Attractor Asymptote**: Converges toward a finite structure or fixed point, often associated with mass or information singularity replacement.
+
+This implies the presence of recursive attractors:
+\[
+\lim_{n \to \infty} D_n(\mathcal{T}) = D^* \in (0, 1]
+\]
+
+**➡️ FTC density behavior:**  
+\[
+\boxed{\text{Self-Dense, Attractor-Asymptotic}}
+\]
+
+---
+
+### 7.3 Convergence Class
+
+FTC tensor operations, including recursive derivatives and integrals, exhibit **asymptotic convergence** rather than strict finite closure:
+
+- **Convergence Type**: Fractal Asymptotic
+- **Formal Form**:
+  \[
+  \mathcal{T}(x) = \lim_{n \to \infty} F_n(x)
+  \]
+- **Condition**: Convergence occurs under bounded growth of \( \frac{F_n}{G_n} \) — as shown in **RSSN Convergence Theorem 1** (RSSN §3.3).
+
+Fractal asymptotic convergence implies:
+- No single closure step
+- Predictable limiting structure
+- Recursive integrability across scales
+
+**➡️ FTC convergence class:**  
+\[
+\boxed{\text{Fractal Asymptotic}}
+\]
+
+---
+
+### ✅ Summary of Section 7
+
+| **Property**        | **Value**                            | **RSSN Symbol** |
+|---------------------|---------------------------------------|------------------|
+| **Recursion Depth** | Hexagon-level                        | ⬢               |
+| **Density Behavior**| Self-Dense, Attractor-Asymptotic     | –               |
+| **Convergence Class**| Fractal Asymptotic                   | –               |
+
 
 ---
 
