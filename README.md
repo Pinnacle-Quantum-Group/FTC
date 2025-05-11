@@ -259,3 +259,18 @@ This work lays the groundwork for a unified theory of space-time and information
 * Kanamori, A. "The Higher Infinite." Springer, 2009.
 * Écalle, J. "Théorie des Invariants Holomorphes." 1974.
 * Zhang, W., Thompson, R. "Quantum Uncertainty Principles in Recursive Structures." 2024.
+
+---
+
+### Appendix: Foundational Context
+
+While *Fractal Tensor Calculus* does not explicitly critique classical set theory, it is constructed within a mathematical framework that diverges from Zermelo–Fraenkel foundations. In particular, this model replaces cardinality and completed infinities with **recursive density metrics** and **scale-invariant generative structures**. The symbolic operators and convergence principles used herein assume that **space, number, and information are fractal and emergent**, not statically defined.
+
+Axiomatic replacements for set cardinality, continuity, power sets, and measure theory are formalized in the following works:
+
+- *Set Theory Must Be Rewritten – The End of Static Infinite Sets*  
+- *The Power Set Paradox is False – There is No "Bigger" Infinity*  
+- *A Unified Fractal Theory of Infinity – Replacing Cardinality with Recursive Density*
+
+These companion papers provide the logical foundation for abandoning Cantorian cardinal hierarchies and adopting **recursive fractal structures** as the primary ontological and mathematical substrate.
+
