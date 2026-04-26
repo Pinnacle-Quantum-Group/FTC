@@ -6,6 +6,10 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -22,13 +26,36 @@ jobs:
           echo "$HOME/.elan/bin" >> $GITHUB_PATH
 
       - name: Lean version
-        run: lean --version
+        run: lean --version 2>&1 | tee -a /tmp/build.log
 
       - name: lake update
-        run: lake update
+        run: lake update 2>&1 | tee -a /tmp/build.log
 
       - name: Fetch Mathlib cache
-        run: lake exe cache get || true
+        run: (lake exe cache get 2>&1 | tee -a /tmp/build.log) || true
 
       - name: lake build
-        run: lake build
+        id: lake_build
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          lake build 2>&1 | tee -a /tmp/build.log
+
+      - name: Comment build log on PR if failed
+        if: steps.lake_build.outcome == 'failure' && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          {
+            echo '### Lake build failed (last 300 lines)'
+            echo '```'
+            tail -300 /tmp/build.log
+            echo '```'
+          } > /tmp/comment.md
+          gh pr comment ${{ github.event.pull_request.number }} \
+            --repo ${{ github.repository }} \
+            --body-file /tmp/comment.md
+
+      - name: Fail step if lake build failed
+        if: steps.lake_build.outcome == 'failure'
+        run: exit 1
