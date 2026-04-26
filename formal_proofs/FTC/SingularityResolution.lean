@@ -43,7 +43,7 @@ theorem exp_damped_to_zero (γ : ℝ) (hγ : 0 < γ) :
   have : Tendsto (fun n : ℕ => -γ * ↑n) atTop atBot := by
     -- `neg_const_mul_atTop` wants `-γ < 0`, which is direct from `0 < γ`.
     apply Filter.Tendsto.neg_const_mul_atTop (neg_lt_zero.mpr hγ)
-    exact tendsto_natCast_atTop_atTop
+    exact tendsto_nat_cast_atTop_atTop
   exact tendsto_exp_atBot.comp this
 
 /-! ## 3. Recursive Curvature Vanishes at Singularity -/

@@ -62,7 +62,7 @@ private lemma limit_lipschitz_on (lc : LipschitzCurvature) (S : Set ℝ)
     (hpw x hx).sub (hpw y hy)
   have h_abs : Tendsto (fun n => |lc.R n x - lc.R n y|) atTop
                 (nhds |lc.R_cl x - lc.R_cl y|) := h_diff.abs
-  exact le_of_tendsto h_abs (Filter.Eventually.of_forall (fun n => lc.lipschitz n x y))
+  exact le_of_tendsto h_abs (Filter.eventually_of_forall (fun n => lc.lipschitz n x y))
 
 /-- Step 2: grid points for a uniform partition of [a,b] into M pieces. -/
 private def gridPt (a b : ℝ) (M : ℕ) (i : ℕ) : ℝ :=
@@ -95,10 +95,11 @@ private lemma gridSpacing_le (a b δ : ℝ) (hab : a < b) (hδ : 0 < δ) :
       show (⌈(b - a) / δ⌉₊ : ℝ) < ((⌈(b - a) / δ⌉₊ + 1 : ℕ) : ℝ)
       push_cast; linarith
     linarith
+  -- After `div_le_iff hM_R`, goal becomes `b - a ≤ δ * ↑M`.
   rw [div_le_iff hM_R]
-  calc b - a = (b - a) / δ * δ := by field_simp
-    _ ≤ (M : ℝ) * δ := by
-        exact mul_le_mul_of_nonneg_right (le_of_lt h_M_gt) (le_of_lt hδ)
+  calc b - a = δ * ((b - a) / δ) := by field_simp; ring
+    _ ≤ δ * (M : ℝ) :=
+        mul_le_mul_of_nonneg_left (le_of_lt h_M_gt) (le_of_lt hδ)
 
 /-- Step 4: for any x ∈ [a,b] some grid index i satisfies
     |x - gridPt i| ≤ (b-a)/M. -/
@@ -151,7 +152,11 @@ theorem L3_2a_uniform_on_compact (lc : LipschitzCurvature)
   intro ε hε
   set δ : ℝ := ε / (3 * lc.K) with hδ_def
   have hδ_pos : 0 < δ := div_pos hε (by linarith [lc.hK])
-  have hKδ : lc.K * δ = ε / 3 := by rw [hδ_def]; field_simp
+  have hKne : lc.K ≠ 0 := ne_of_gt lc.hK
+  have hKδ : lc.K * δ = ε / 3 := by
+    show lc.K * (ε / (3 * lc.K)) = ε / 3
+    rw [mul_div_assoc', mul_comm (3 : ℝ) lc.K]
+    exact mul_div_mul_left ε 3 hKne
   rcases eq_or_lt_of_le hab with hab_eq | hab_lt
   · -- degenerate interval [a,a]
     subst hab_eq
