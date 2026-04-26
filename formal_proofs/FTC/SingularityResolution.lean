@@ -30,7 +30,9 @@ theorem exp_damped_decreasing (γ : ℝ) (hγ : 0 < γ) :
   intro i j hij
   unfold expDampedMetric
   apply exp_lt_exp.mpr
-  linarith [show (↑i : ℝ) < ↑j from Nat.cast_lt.mpr hij]
+  -- Goal: `-γ * ↑j < -γ * ↑i` from `i < j`, `0 < γ`. Bilinear in γ and ↑j;
+  -- `nlinarith` handles the product, `linarith` cannot.
+  nlinarith [hγ, show (↑i : ℝ) < ↑j from Nat.cast_lt.mpr hij]
 
 theorem exp_damped_pos (γ : ℝ) (n : ℕ) : 0 < expDampedMetric γ n := by
   unfold expDampedMetric; exact exp_pos _
@@ -39,8 +41,9 @@ theorem exp_damped_to_zero (γ : ℝ) (hγ : 0 < γ) :
     Tendsto (expDampedMetric γ) atTop (nhds 0) := by
   unfold expDampedMetric
   have : Tendsto (fun n : ℕ => -γ * ↑n) atTop atBot := by
-    apply Filter.Tendsto.neg_const_mul_atTop (neg_neg_of_neg (neg_of_neg_pos (by linarith)))
-    exact tendsto_natCast_atTop_atTop
+    -- `neg_const_mul_atTop` wants `-γ < 0`, which is direct from `0 < γ`.
+    apply Filter.Tendsto.neg_const_mul_atTop (neg_lt_zero.mpr hγ)
+    exact tendsto_nat_cast_atTop_atTop
   exact tendsto_exp_atBot.comp this
 
 /-! ## 3. Recursive Curvature Vanishes at Singularity -/

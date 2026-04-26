@@ -26,7 +26,7 @@ theorem L6_1_nonneg (D : ℕ → ℝ) (N : ℕ)
   apply Finset.sum_nonneg
   intro n _
   apply mul_nonneg (le_of_lt (hD_pos n))
-  rw [one_div]; exact log_nonneg (one_le_inv_of_le (hD_pos n) (hD_le n))
+  rw [one_div]; exact log_nonneg (one_le_inv (hD_pos n) (hD_le n))
 
 theorem L6_1_maximality (N : ℕ) (hN : 0 < N) :
     ∀ (D : ℕ → ℝ), (∀ n, 0 < D n) → (∀ n, D n ≤ 1) →
@@ -53,8 +53,8 @@ theorem L6_2_single_depth_is_shannon (p : Fin N → ℝ)
 theorem L6_2_binary_entropy (p : ℝ) (hp0 : 0 < p) (hp1 : p < 1) :
     p * log (1 / p) + (1 - p) * log (1 / (1 - p)) ≥ 0 := by
   apply add_nonneg
-  · exact mul_nonneg (le_of_lt hp0) (log_nonneg (by rw [one_div]; exact one_le_inv_of_le hp0 (le_of_lt hp1)))
-  · exact mul_nonneg (by linarith) (log_nonneg (by rw [one_div]; exact one_le_inv_of_le (by linarith) (by linarith)))
+  · exact mul_nonneg (le_of_lt hp0) (log_nonneg (by rw [one_div]; exact one_le_inv hp0 (le_of_lt hp1)))
+  · exact mul_nonneg (by linarith) (log_nonneg (by rw [one_div]; exact one_le_inv (by linarith) (by linarith)))
 
 /-! ## L6.3 — Bekenstein Bound
     At saturation η=1:
@@ -75,8 +75,11 @@ theorem L6_3_prob_times_states : bekensteinStates * bekensteinProb = 1 := by
 theorem L6_3_entropy_per_dof :
     bekensteinStates * (bekensteinProb * log (1 / bekensteinProb)) = π := by
   unfold bekensteinStates bekensteinProb
-  rw [one_div, log_inv, ← neg_mul, log_exp]
-  rw [← exp_add]; simp; ring
+  -- log (1 / e^{-π}) = log (e^π) = π. Then e^π * (e^{-π} * π) = (e^π * e^{-π}) * π = 1 * π = π
+  rw [one_div, log_inv, log_exp, neg_neg]
+  -- goal: rexp π * (rexp (-π) * π) = π
+  rw [show rexp π * (rexp (-π) * π) = (rexp π * rexp (-π)) * π from by ring]
+  rw [← exp_add, add_neg_self, exp_zero, one_mul]
 
 theorem L6_3_mutual_info : bekensteinCapacity = 2 * π := rfl
 

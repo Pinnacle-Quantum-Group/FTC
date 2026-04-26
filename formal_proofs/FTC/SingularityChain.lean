@@ -25,7 +25,13 @@ def naturalScale (R_magnitude : ℝ) (hR : 0 < R_magnitude) : ℝ :=
 
 theorem L5_1_scale_to_zero :
     Tendsto (fun R => 1 / Real.sqrt R) atTop (nhds 0) := by
-  apply tendsto_const_div_atTop_nhds_0_nat |>.comp sorry
+  -- 1/sqrt R = (sqrt R)⁻¹ → 0 as R → ∞. Two pieces:
+  --  (a) Real.sqrt is unbounded above (sqrt(N²) = N → ∞)
+  --  (b) tendsto_inv_atTop_zero gives x⁻¹ → 0 as x → ∞
+  -- Stub: the natural composition lemma `Tendsto Real.sqrt atTop atTop` isn't
+  -- a single mathlib lemma in v4.5.0; building it requires either an
+  -- Archimedean argument or `Real.sqrt_lt_sqrt` chained through `exists_nat_gt`.
+  sorry
 
 theorem L5_1_scale_pos (R : ℝ) (hR : 0 < R) : 0 < naturalScale R hR := by
   unfold naturalScale; positivity
@@ -40,10 +46,15 @@ structure BaseGeneratorData where
 
 def baseDensity (bg : BaseGeneratorData) : ℝ := bg.g₀ / bg.G₀
 
+/-- NOTE (specification mismatch): the original claim `baseDensity < ⊤` doesn't
+    typecheck — ℝ has no `Top` instance. The actual content the lemma was trying
+    to express is just positivity (every g₀/G₀ with positive g₀ and G₀ is
+    finite — there's no separate "< ⊤" check needed in ℝ). Restated as
+    positivity, which is the proved fact. -/
 theorem L5_2_base_finite (bg : BaseGeneratorData) :
-    0 < baseDensity bg ∧ baseDensity bg < ⊤ := by
+    0 < baseDensity bg := by
   unfold baseDensity
-  exact ⟨div_pos bg.hg₀ bg.hG₀, sorry⟩
+  exact div_pos bg.hg₀ bg.hG₀
 
 /-! ## L5.3 — BH Attractor Density: D*_BH = e^{-π} -/
 
@@ -60,8 +71,10 @@ theorem L5_3_from_saturation :
     let d_star := exp π     -- number of states at η=1
     let prob := 1 / d_star  -- equal probability per state
     prob = bhDensity := by
-  simp [bhDensity]
-  rw [one_div, inv_eq_one_div, ← exp_neg]
+  -- 1 / e^π = (e^π)⁻¹ = e^{-π} = bhDensity
+  show (1 : ℝ) / exp π = bhDensity
+  rw [one_div, ← exp_neg]
+  rfl
 
 /-! ## L5.4 — Universality: D*_BH independent of mass M -/
 
@@ -95,7 +108,10 @@ theorem L5_6_ricci_vanishes (γ : ℝ) (hγ : 0 < γ) :
       exact Filter.Tendsto.neg_const_mul_atTop (by linarith) tendsto_id
     exact tendsto_exp_atBot.comp this
   have h2 : Tendsto (fun u : ℝ => 1 / (2 * u)) atTop (nhds 0) := by sorry
-  exact Tendsto.mul h2 h1 |>.congr (by intro u; ring_nf)
+  -- `Tendsto.mul h2 h1` gives the limit `0 * 0`; rewrite the limit value to 0.
+  have hmul := Tendsto.mul h2 h1
+  simp only [mul_zero] at hmul
+  exact hmul
 
 theorem L5_6_classical_diverges :
     Tendsto (fun r : ℝ => 1 / r ^ 2) (nhdsWithin 0 (Set.Ioi 0)) atTop := by

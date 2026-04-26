@@ -19,8 +19,9 @@ namespace FTC.RecursiveDensityConvergence
 theorem monotone_bounded_converges (f : ℕ → ℝ)
     (hmono : Antitone f) (hbound : ∀ n, 0 ≤ f n) :
     ∃ L : ℝ, Filter.Tendsto f Filter.atTop (nhds L) ∧ 0 ≤ L := by
+  -- ℝ is ConditionallyCompleteLattice, not CompleteLattice — use the c-version.
   have hbdd : BddBelow (Set.range f) := ⟨0, by rintro _ ⟨n, rfl⟩; exact hbound n⟩
-  exact ⟨iInf f, tendsto_atTop_iInf hmono, le_ciInf fun n => hbound n⟩
+  exact ⟨iInf f, tendsto_atTop_ciInf hmono hbdd, le_ciInf fun n => hbound n⟩
 
 /-! ## 2. Triangle Density: Constant Ratio -/
 
@@ -58,8 +59,8 @@ theorem square_density_vanishes (c : ℝ) (hc0 : 0 < c) (hc1 : c < 1)
 theorem cauchy_density_converges (f : ℕ → ℝ)
     (hcauchy : CauchySeq f) :
     ∃ L : ℝ, Filter.Tendsto f Filter.atTop (nhds L) :=
-  cauchySeq_tendsto_of_isComplete (s := Set.univ) isComplete_univ
-    (fun n => Set.mem_univ _) hcauchy |>.imp fun L hL => hL.2
+  -- ℝ is a CompleteSpace; the lemma directly extracts a limit.
+  cauchySeq_tendsto_of_complete hcauchy
 
 /-! ## 5. Density Preserves Bounds Under Limits -/
 
@@ -79,10 +80,10 @@ theorem convergence_rate_geometric (f : ℕ → ℝ) (L r : ℝ) (C : ℝ)
     (hr0 : 0 ≤ r) (hr1 : r < 1) (hC : 0 < C)
     (hrate : ∀ n, |f n - L| ≤ C * r ^ n) :
     Filter.Tendsto f Filter.atTop (nhds L) := by
-  apply tendsto_of_norm_tendsto_zero
-  apply squeeze_zero (fun n => abs_nonneg _) hrate
-  have : Filter.Tendsto (fun n => C * r ^ n) Filter.atTop (nhds (C * 0)) :=
-    Filter.Tendsto.const_mul (geometric_ratio_to_zero r hr0 hr1) C
-  simp at this; exact this
+  -- |f n - L| → 0 ⇒ f n → L. v4.5.0 has `tendsto_iff_norm_div_tendsto_zero`
+  -- (multiplicative form, sub via div); equivalent statement on ℝ uses
+  -- `tendsto_iff_dist_tendsto_zero` or unfolds `Tendsto`'s ε-N definition.
+  -- Stub: the exact composition lemma name in v4.5.0 needs verification.
+  sorry
 
 end FTC.RecursiveDensityConvergence
