@@ -253,7 +253,7 @@ theorem L3_3b_scale_decreases_with_curvature (R₁ R₂ : ℝ)
     (hR₁ : 0 < R₁) (hR₂ : 0 < R₂) (h : R₁ < R₂) :
     naturalScale R₂ hR₂ < naturalScale R₁ hR₁ := by
   unfold naturalScale
-  apply div_lt_div_of_pos_left (by norm_num) (Real.sqrt_pos.mpr hR₁)
+  apply div_lt_div_of_lt_left (by norm_num) (Real.sqrt_pos.mpr hR₁)
   exact Real.sqrt_lt_sqrt (le_of_lt hR₁) h
 
 /-! ## L3.3c — Fixed-Scale Ricci: R^(n*) = R + O(1/n*²) -/
