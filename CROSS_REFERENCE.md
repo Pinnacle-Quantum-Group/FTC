@@ -9,7 +9,7 @@ The complete lemma derivation mapping for the PQG framework is maintained in:
 
 | Theorem | Status | Key Lemmas |
 |---------|--------|------------|
-| FTC T3 (Curvature Convergence) | **PARTIALLY TIGHT** | L3.1 pointwise, L3.2a uniform, L3.3a-c Ricci flow |
+| FTC T3 (Curvature Convergence) | **TIGHT** | L3.1 pointwise, L3.2a uniform Cauchy on compact K, L3.3a-c Ricci flow |
 | FTC T4 (Singularity Resolution) | **TIGHT (BH)** | L5.1-L5.7 complete chain |
 | FTC T6 (Entropy = Bekenstein) | **TIGHT** | L6.1-L6.3 Shannon + classical limit + Bekenstein |
 
@@ -18,7 +18,7 @@ The complete lemma derivation mapping for the PQG framework is maintained in:
 - **D*_BH = e^{-pi} ~ 0.0432** -- universal black hole attractor density
 - **R^(n*) -> 0** at BH singularity -- classical curvature diverges, FTC converges to zero
 - **S_recursive at eta=1 = 2*pi nats** -- matches Bekenstein capacity exactly
-- **Option B (fixed scale n* ~ |R|^{-1/2})** resolves pointwise vs uniform convergence gap
+- **L3.2a (uniform Cauchy on compact K under Lipschitz)** closes the pointwise-vs-uniform gap directly; Option B (fixed scale n* ~ |R|^{-1/2}) provides an alternative pointwise resolution
 
 ## Test Suite
 
