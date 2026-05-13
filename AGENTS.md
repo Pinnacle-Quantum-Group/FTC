@@ -5,6 +5,12 @@ across the five PQG repositories. Read this once, then go to the per-repo
 docs. This document explains *the combined work*: what each repo is, how the
 pieces fit, and where the load-bearing results live.
 
+**Path convention.** Paths prefixed with a repo name (e.g. `RSSN/...`,
+`RLA/...`) refer to files in that *other* repo and only resolve if you
+have those sibling repos checked out alongside this one. Paths without a
+repo prefix (e.g. `CROSS_REFERENCE.md`, `formal_proofs/...`) are relative
+to the root of *this* repo (FTC).
+
 **Repositories covered (all on branch `claude/create-agent-docs-UaR9V`):**
 
 | Repo  | Name                                  | Role in the stack                        |
@@ -339,7 +345,7 @@ These are the recurring mistakes across the framework. Memorize them.
 | Understand the axiomatic ground                           | `RSF/README.md` §Axioms 1–9                    |
 | Look up a shape operator or `D_k(n)`                      | `RSSN/README.md` §2–§3                         |
 | Cite the twisted bracket or Witt limit                    | `RLA/README.md` §4, §8; `RLA/AppendixA`        |
-| Find a Bekenstein / BH-attractor number                   | `FTC/CROSS_REFERENCE.md`                       |
+| Find a Bekenstein / BH-attractor number                   | `CROSS_REFERENCE.md`                           |
 | Hack on Φ-cells, CORDIC, or the FPGA bitstream            | `FIL/AGENT.md` + `FIL/README.md`               |
 | Trace a lemma across repos                                | `RSSN/LEMMA_DERIVATIONS.md`                    |
 | See current proof status                                  | `*/CROSS_REFERENCE.md` + each repo's Lean tree |
