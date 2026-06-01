@@ -228,40 +228,50 @@ theorem statDist_self (p : Fin m → ℝ) : statDist p p = 0 := by
   unfold statDist
   simp
 
-/-- 2-universality of a hash family, expressed on the collision probability
-    function `collProb : Fin N → Fin N → ℝ` (`collProb x y = Pr_h[h x = h y]`).
-    Modeled as a hypothesis-carrying predicate in the style of the abstract
-    `RepData` / `TwistedBracketData` structures used throughout these proofs. -/
+/-- A 2-universal hash family carrying its actual functions and a nonempty seed
+    index `Fin seeds`, so the extractor's output distribution is *well-defined*
+    (not an arbitrary distribution). 2-universality: for distinct inputs the
+    fraction of seeds on which they collide is `≤ 1/M`. -/
 structure UniversalHashFamily (N M : ℕ) where
-  collProb : Fin N → Fin N → ℝ
-  two_universal : ∀ x y, x ≠ y → collProb x y ≤ 1 / (↑M : ℝ)
+  seeds : ℕ
+  seeds_pos : 0 < seeds
+  h : Fin seeds → Fin N → Fin M
+  two_universal : ∀ x y, x ≠ y →
+    (↑(Finset.univ.filter (fun i => h i x = h i y)).card : ℝ) / (↑seeds : ℝ)
+      ≤ 1 / (↑M : ℝ)
+
+/-- **Genuine extractor output distribution.** Pick a seed `i` uniformly from the
+    family and a source symbol `x ∼ p`, and emit `h i x`; this is the pushforward
+    of `p` (with the uniform seed) through the family — precisely the
+    distribution the Leftover Hash Lemma bounds, *not* an arbitrary one. -/
+def extractorOutput (Hf : UniversalHashFamily N M) (p : Fin N → ℝ) : Fin M → ℝ :=
+  fun j => (1 / (↑Hf.seeds : ℝ)) *
+    ∑ i, (∑ x in Finset.univ.filter (fun x => Hf.h i x = j), p x)
 
 /-- **L6.4c — Leftover Hash Lemma (extractor bound), STATEMENT ONLY.**
-    If the source distribution `p` on `Fin (N+1)` has `minEntropy p ≥ k` and
-    `H` is 2-universal into `Fin (M+1)` with `log (↑(M+1)) ≤ k - 2 * log (1/ε)`
-    (the standard LHL entropy-loss condition), then the conditioned output is
-    within statistical distance `ε` of uniform.
+    If the source distribution `p` on `Fin (N+1)` has `minEntropy p ≥ k` and `Hf`
+    is 2-universal into `Fin (M+1)` with `log (↑(M+1)) ≤ k - 2 * log (1/ε)` (the
+    standard LHL entropy-loss condition), then **the family's genuine extractor
+    output** `extractorOutput Hf p` is within statistical distance `ε` of uniform.
 
-    PROOF DEFERRED (`sorry`). Standard argument: bound the collision
-    probability of `(h, h(X))`, relate ‖·‖₂ to ‖·‖₁ via Cauchy–Schwarz, and
-    invoke 2-universality. References: Impagliazzo–Levin–Luby (LHL, 1989);
-    Håstad–Impagliazzo–Levin–Luby (1999); NIST SP 800-90B §3.1.5 (vetted
-    conditioners). The Mathlib-level formalization needs the collision-entropy
-    machinery (`H₂ ≥ H_∞`) which is not developed under the pinned
-    Mathlib v4.5.0, hence the `sorry`. -/
+    The conclusion is bound to `extractorOutput Hf p` — the actual pushforward of
+    the source through the family — NOT an arbitrary distribution. A
+    non-extracted distribution (e.g. a point mass) is not of this form, so the
+    statement is sound and the `sorry` defers only the genuine LHL bound.
+
+    PROOF DEFERRED (`sorry`). Standard argument: bound the collision probability
+    of `(h, h(X))`, relate ‖·‖₂ to ‖·‖₁ via Cauchy–Schwarz, and invoke
+    2-universality. References: Impagliazzo–Levin–Luby (LHL, 1989);
+    Håstad–Impagliazzo–Levin–Luby (1999); NIST SP 800-90B §3.1.5. The
+    Mathlib-level proof needs collision-entropy machinery (`H₂ ≥ H_∞`) not
+    developed under the pinned Mathlib v4.5.0, hence the `sorry`. -/
 theorem L6_4c_leftover_hash_extractor
-    (N M : ℕ) (H : UniversalHashFamily (N + 1) (M + 1))
+    (N M : ℕ) (Hf : UniversalHashFamily (N + 1) (M + 1))
     (p : Fin (N + 1) → ℝ) (hp_pos : ∀ i, 0 < p i) (hp_sum : ∑ i, p i = 1)
     (k ε : ℝ) (hε : 0 < ε)
     (hk : k ≤ minEntropy p)
     (hloss : log (↑(M + 1) : ℝ) ≤ k - 2 * log (1 / ε)) :
-    -- `outputDist H p` is the pushforward of `p` through a uniformly chosen
-    -- `h ∈ H`; abstractly it is *some* distribution on `Fin (M+1)`, and the
-    -- claim is that it is ε-close to uniform. We state the conclusion against
-    -- the uniform distribution directly.
-    ∀ outputDist : Fin (M + 1) → ℝ,
-      (∀ j, 0 ≤ outputDist j) → (∑ j, outputDist j = 1) →
-      statDist outputDist (uniformDist M) ≤ ε := by
-  sorry  -- Leftover Hash Lemma; see citation above. Heavy part deferred.
+    statDist (extractorOutput Hf p) (uniformDist M) ≤ ε := by
+  sorry  -- Leftover Hash Lemma (bound now tied to the genuine pushforward).
 
 end FTC.EntropyLemmas
