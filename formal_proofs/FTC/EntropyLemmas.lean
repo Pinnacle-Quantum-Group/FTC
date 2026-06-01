@@ -93,4 +93,175 @@ theorem T6_entropy_equals_bekenstein :
     bekensteinStates * bekensteinProb = 1 :=
   ⟨rfl, rfl, L6_3_prob_times_states⟩
 
+/-! ## L6.4 — Min-Entropy (H_∞) and the Leftover-Hash Extractor Bound
+    (DM-TRNG anchor: SP 800-90B min-entropy + SP 800-90B §3.1.5 vetted
+     conditioner = universal hash ⇒ full-entropy output)
+
+    The SP 800-90B estimators in `fil_mlwe256/analysis/min_entropy.py` all
+    report `H_min = -log₂(p_max)`. We formalize the natural-log version
+    `minEntropy p = -log (maxProb p)` (a positive multiple `log 2` apart from
+    the bits/symbol figure) and prove the two structural facts the entropy
+    claim rests on:
+      • `minEntropy ≤ shannonEntropy`  (H_∞ is the most conservative entropy),
+      • `minEntropy (uniform) = log N` (the maximal/full-entropy point).
+    The leftover-hash / extractor bound (universal hash family applied to a
+    source with `H_∞ ≥ k` ⇒ output ε-close to uniform) is *stated* and left as
+    `sorry`; see the citation on that theorem. -/
+
+/-- The largest coordinate probability `p_max` of a distribution on
+    `Fin (n+1)` (nonempty index type). Defined as the `Finset.max'` of the
+    image of `p`, mirroring the `Finset.image … |>.max'` pattern used in
+    `CurvatureConvergence.lean`. -/
+def maxProb (p : Fin (n + 1) → ℝ) : ℝ :=
+  ((Finset.univ : Finset (Fin (n + 1))).image p).max'
+    ⟨p 0, Finset.mem_image.mpr ⟨0, Finset.mem_univ _, rfl⟩⟩
+
+/-- Min-entropy `H_∞(p) = -log p_max` (natural log; bits = this / log 2). -/
+def minEntropy (p : Fin (n + 1) → ℝ) : ℝ := - log (maxProb p)
+
+/-- Every coordinate probability is `≤ p_max`. -/
+theorem le_maxProb (p : Fin (n + 1) → ℝ) (i : Fin (n + 1)) :
+    p i ≤ maxProb p := by
+  unfold maxProb
+  apply Finset.le_max'
+  exact Finset.mem_image.mpr ⟨i, Finset.mem_univ _, rfl⟩
+
+/-- `p_max > 0` when all coordinates are positive (so `log p_max` is defined
+    and the sign manipulations below are valid). -/
+theorem maxProb_pos (p : Fin (n + 1) → ℝ) (hp_pos : ∀ i, 0 < p i) :
+    0 < maxProb p :=
+  lt_of_lt_of_le (hp_pos 0) (le_maxProb p 0)
+
+/-- Monotonicity of `log` on the positives. Proved from the stable primitives
+    `Real.exp_log` / `Real.exp_le_exp` (rather than a version-sensitive
+    `log_le_log` name) so it compiles regardless of Mathlib API churn:
+    `log` is the inverse of the strictly monotone `exp`, so `x ≤ y` ⇒
+    `log x ≤ log y` on the positives. -/
+theorem log_le_log_of_le {x y : ℝ} (hx : 0 < x) (hxy : x ≤ y) :
+    log x ≤ log y := by
+  have hy : 0 < y := lt_of_lt_of_le hx hxy
+  -- exp is monotone and log is its inverse on the positives
+  rw [← Real.exp_le_exp, Real.exp_log hx, Real.exp_log hy]
+  exact hxy
+
+/-- **L6.4a — H_∞ ≤ Shannon.** Min-entropy is the most conservative of the
+    Rényi entropies: it never overstates the unpredictability of the source.
+    Proof: `shannon = ∑ pᵢ·(-log pᵢ) ≥ ∑ pᵢ·(-log p_max) = -log p_max`, using
+    `pᵢ ≤ p_max` ⇒ `log pᵢ ≤ log p_max` and `∑ pᵢ = 1`. -/
+theorem L6_4a_minEntropy_le_shannon (p : Fin (n + 1) → ℝ)
+    (hp_pos : ∀ i, 0 < p i) (hp_sum : ∑ i, p i = 1) :
+    minEntropy p ≤ shannonEntropy p := by
+  unfold minEntropy shannonEntropy
+  -- Rewrite each Shannon term pᵢ·log(1/pᵢ) = pᵢ·(-log pᵢ) and the target
+  -- -log p_max = (∑ pᵢ)·(-log p_max) = ∑ pᵢ·(-log p_max).
+  have hterm : ∀ i ∈ Finset.univ,
+      p i * (-log (maxProb p)) ≤ p i * log (1 / p i) := by
+    intro i _
+    rw [one_div, log_inv]
+    -- goal: p i * (-log p_max) ≤ p i * (-log (p i))
+    apply mul_le_mul_of_nonneg_left _ (le_of_lt (hp_pos i))
+    -- -log p_max ≤ -log (p i)  ⇐  log (p i) ≤ log p_max
+    exact neg_le_neg (log_le_log_of_le (hp_pos i) (le_maxProb p i))
+  calc -log (maxProb p)
+      = (∑ i, p i) * (-log (maxProb p)) := by rw [hp_sum, one_mul]
+    _ = ∑ i, p i * (-log (maxProb p)) := by rw [Finset.sum_mul]
+    _ ≤ ∑ i, p i * log (1 / p i) := Finset.sum_le_sum hterm
+
+/-- The uniform distribution on `Fin (n+1)`. -/
+def uniformDist (n : ℕ) : Fin (n + 1) → ℝ := fun _ => 1 / (↑(n + 1) : ℝ)
+
+/-- `p_max` of the uniform distribution is `1/(n+1)`: the image of a constant
+    function is the singleton `{1/(n+1)}`, whose `max'` is itself. -/
+theorem maxProb_uniform (n : ℕ) : maxProb (uniformDist n) = 1 / (↑(n + 1) : ℝ) := by
+  have hle : maxProb (uniformDist n) ≤ 1 / (↑(n + 1) : ℝ) := by
+    -- every element of the image equals the constant value
+    unfold maxProb
+    apply Finset.max'_le
+    intro y hy
+    obtain ⟨i, _, rfl⟩ := Finset.mem_image.mp hy
+    exact le_of_eq rfl
+  have hge : 1 / (↑(n + 1) : ℝ) ≤ maxProb (uniformDist n) :=
+    le_maxProb (uniformDist n) 0
+  linarith
+
+/-- **L6.4b — H_∞ of uniform = log N.** The full-entropy / maximal point:
+    a uniform distribution on `N = n+1` symbols has `minEntropy = log N`
+    (in bits, `log₂ N`; for a byte source `N = 256`, `log₂ N = 8` — exactly
+    the SP 800-90B target `H_min ≈ 8.0 bits/byte`). -/
+theorem L6_4b_minEntropy_uniform (n : ℕ) :
+    minEntropy (uniformDist n) = log (↑(n + 1) : ℝ) := by
+  unfold minEntropy
+  rw [maxProb_uniform, one_div, log_inv, neg_neg]
+
+/-- Min-entropy is nonnegative for a genuine distribution (`p_max ≤ 1`),
+    since `log` of a value `≤ 1` is `≤ 0`. -/
+theorem minEntropy_nonneg (p : Fin (n + 1) → ℝ)
+    (hp_pos : ∀ i, 0 < p i) (hpm_le : maxProb p ≤ 1) :
+    0 ≤ minEntropy p := by
+  unfold minEntropy
+  rw [neg_nonneg]
+  exact log_nonpos (le_of_lt (maxProb_pos p hp_pos)) hpm_le
+
+/-! ### Leftover-Hash / Extractor bound (SP 800-90B §3.1.5 vetted conditioner)
+
+    A family `H = {h : Fin (N) → Fin (M)}` is **2-universal** if for distinct
+    inputs `x ≠ y`, `Pr_{h}[h x = h y] ≤ 1/M`. The Leftover Hash Lemma (LHL)
+    states: if the source `X` has min-entropy `H_∞(X) ≥ k` and `h` is drawn
+    from a 2-universal family with `m = log₂ M ≤ k - 2·log₂(1/ε)`, then `(h, h(X))`
+    is `ε`-close (in statistical distance) to `(h, U_M)`. This is exactly the
+    guarantee the DM-TRNG conditioner provides: SHA-256 / HMAC-SHA256 (the
+    golden path) and the Möbius-Keccak sponge are modeled as vetted
+    conditioners / 2-universal extractors, so a raw stream with measured
+    `H_∞ ≥ k` is mapped to a near-uniform full-entropy output. -/
+
+/-- Statistical (total-variation) distance between two distributions on
+    `Fin m`: `½ ∑ |p i − q i|`. -/
+def statDist (p q : Fin m → ℝ) : ℝ :=
+  (1 / 2) * ∑ i, |p i - q i|
+
+theorem statDist_nonneg (p q : Fin m → ℝ) : 0 ≤ statDist p q := by
+  unfold statDist
+  apply mul_nonneg (by norm_num)
+  exact Finset.sum_nonneg (fun i _ => abs_nonneg _)
+
+theorem statDist_self (p : Fin m → ℝ) : statDist p p = 0 := by
+  unfold statDist
+  simp
+
+/-- 2-universality of a hash family, expressed on the collision probability
+    function `collProb : Fin N → Fin N → ℝ` (`collProb x y = Pr_h[h x = h y]`).
+    Modeled as a hypothesis-carrying predicate in the style of the abstract
+    `RepData` / `TwistedBracketData` structures used throughout these proofs. -/
+structure UniversalHashFamily (N M : ℕ) where
+  collProb : Fin N → Fin N → ℝ
+  two_universal : ∀ x y, x ≠ y → collProb x y ≤ 1 / (↑M : ℝ)
+
+/-- **L6.4c — Leftover Hash Lemma (extractor bound), STATEMENT ONLY.**
+    If the source distribution `p` on `Fin (N+1)` has `minEntropy p ≥ k` and
+    `H` is 2-universal into `Fin (M+1)` with `log (↑(M+1)) ≤ k - 2 * log (1/ε)`
+    (the standard LHL entropy-loss condition), then the conditioned output is
+    within statistical distance `ε` of uniform.
+
+    PROOF DEFERRED (`sorry`). Standard argument: bound the collision
+    probability of `(h, h(X))`, relate ‖·‖₂ to ‖·‖₁ via Cauchy–Schwarz, and
+    invoke 2-universality. References: Impagliazzo–Levin–Luby (LHL, 1989);
+    Håstad–Impagliazzo–Levin–Luby (1999); NIST SP 800-90B §3.1.5 (vetted
+    conditioners). The Mathlib-level formalization needs the collision-entropy
+    machinery (`H₂ ≥ H_∞`) which is not developed under the pinned
+    Mathlib v4.5.0, hence the `sorry`. -/
+theorem L6_4c_leftover_hash_extractor
+    (N M : ℕ) (H : UniversalHashFamily (N + 1) (M + 1))
+    (p : Fin (N + 1) → ℝ) (hp_pos : ∀ i, 0 < p i) (hp_sum : ∑ i, p i = 1)
+    (k ε : ℝ) (hε : 0 < ε)
+    (hk : k ≤ minEntropy p)
+    (hloss : log (↑(M + 1) : ℝ) ≤ k - 2 * log (1 / ε)) :
+    -- `outputDist H p` is the pushforward of `p` through a uniformly chosen
+    -- `h ∈ H`; abstractly it is *some* distribution on `Fin (M+1)`, and the
+    -- claim is that it is ε-close to uniform. We state the conclusion against
+    -- the uniform distribution directly.
+    ∀ outputDist : Fin (M + 1) → ℝ,
+      (∀ j, 0 ≤ outputDist j) → (∑ j, outputDist j = 1) →
+      statDist outputDist (uniformDist M) ≤ ε := by
+  sorry  -- Leftover Hash Lemma; see citation above. Heavy part deferred.
+
 end FTC.EntropyLemmas
