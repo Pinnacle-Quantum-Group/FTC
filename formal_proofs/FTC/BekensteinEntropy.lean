@@ -79,11 +79,10 @@ theorem bekenstein_from_information :
 
 theorem classical_limit_single_depth (p : Fin n → ℝ)
     (hp_pos : ∀ i, 0 < p i) :
-    recursiveEntropy (fun k => if k < n then p ⟨k, by sorry⟩ else 0) 0 = 0 := by
+    recursiveEntropy (fun k => if h : k < n then p ⟨k, h⟩ else 0) 0 = 0 := by
   -- recursiveEntropy ... 0 = sum over Finset.range 0 = 0 (empty sum). The
-  -- inner `by omega` was failing because omega doesn't see that `k < n` (the
-  -- if-condition) is the same `k` it needs to bound. This stub is in the
-  -- inline argument, not the outer proof.
+  -- embedding `ℕ → Fin n` uses a *dependent* if (`dite`), so the bound
+  -- `h : k < n` is available to build `⟨k, h⟩` — no proof hole needed.
   unfold recursiveEntropy; simp
 
 /-! ## 6. Entropy Maximized at Uniform Density -/
@@ -91,7 +90,13 @@ theorem classical_limit_single_depth (p : Fin n → ℝ)
 theorem uniform_maximizes_entropy (n : ℕ) (hn : 0 < n) :
     let uniform := fun (_ : Fin n) => (1 : ℝ) / ↑n
     shannonEntropy uniform = log ↑n := by
-  sorry
+  -- H(uniform) = −∑ᵢ (1/n)·log(1/n) = −n·(1/n)·(−log n) = log n.
+  show shannonEntropy (fun (_ : Fin n) => (1 : ℝ) / ↑n) = log ↑n
+  unfold shannonEntropy
+  have hn0 : (n : ℝ) ≠ 0 := Nat.cast_ne_zero.mpr (Nat.pos_iff_ne_zero.mp hn)
+  rw [Finset.sum_const, Finset.card_univ, Fintype.card_fin, nsmul_eq_mul,
+    one_div, log_inv, mul_neg, mul_neg, neg_neg, ← mul_assoc,
+    mul_inv_cancel hn0, one_mul]
 
 /-! ## 7. Entropy Additivity -/
 
