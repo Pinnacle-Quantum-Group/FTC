@@ -78,7 +78,7 @@ theorem L5_3_bh_density_approx :
   have hexp3_eq : exp (3 : ℝ) = exp 1 ^ (3 : ℕ) := by
     rw [← Real.exp_nat_mul]; norm_num
   have h_lower : (20 : ℝ) < exp π := by
-    have hπ3 : (3 : ℝ) < π := by linarith [Real.pi_gt_3141592]
+    have hπ3 : (3 : ℝ) < π := Real.pi_gt_three
     have he3 : (20 : ℝ) < exp 3 := by
       rw [hexp3_eq]
       calc (20 : ℝ) < 2.7182818283 ^ (3 : ℕ) := by norm_num
@@ -186,7 +186,7 @@ theorem L5_6_classical_diverges :
       simpa using (continuous_pow 2).tendsto (0 : ℝ)
     exact h.mono_left nhdsWithin_le_nhds
   · filter_upwards [self_mem_nhdsWithin] with r hr
-    exact pow_pos hr 2
+    exact Set.mem_Ioi.mpr (pow_pos (Set.mem_Ioi.mp hr) 2)
 
 /-! ## T4 Summary: Singularity Resolution -/
 

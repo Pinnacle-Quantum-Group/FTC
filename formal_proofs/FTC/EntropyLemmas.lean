@@ -65,7 +65,10 @@ theorem L6_1_maximality (N : ℕ) (hN : 2 ≤ N) :
     have hlog2 : (1 : ℝ) / 2 ≤ log 2 := by
       -- log (1/2) ≤ 1/2 − 1 = −1/2, and log (1/2) = −log 2.
       have h := log_le_sub_one_of_pos (show (0:ℝ) < 1 / 2 by norm_num)
-      rw [one_div, log_inv] at h
+      -- Rewrite only the log-term (a bare `one_div` would also rewrite the
+      -- 1/2 on the right-hand side, desyncing the atoms for linarith).
+      have hl : log (1 / 2 : ℝ) = -log 2 := by rw [one_div, log_inv]
+      rw [hl] at h
       linarith
     -- log is monotone on the positives (via exp/log inversion; the named
     -- helper `log_le_log_of_le` lives later in this file, so inline it).
@@ -335,6 +338,7 @@ theorem perSeedOutput_sq_sum (Hf : UniversalHashFamily N M) (p : Fin N → ℝ)
         refine Finset.sum_congr rfl fun x hx => ?_
         rw [Finset.mem_filter] at hx
         rw [hx.2]
+        rfl
     _ = ∑ x, p x * perSeedOutput Hf p i (Hf.h i x) :=
         Finset.sum_fiberwise Finset.univ (Hf.h i) _
 
@@ -530,8 +534,9 @@ theorem L6_4c_leftover_hash_extractor
           = (1 / (↑Hf.seeds : ℝ))
             * ∑ i, (perSeedOutput Hf p i j - 1 / ((M + 1 : ℕ) : ℝ)) := by
         rw [extractorOutput_eq, Finset.sum_sub_distrib, Finset.sum_const,
-          Finset.card_univ, Fintype.card_fin, nsmul_eq_mul]
-        field_simp
+          Finset.card_univ, Fintype.card_fin, nsmul_eq_mul, mul_sub]
+        congr 1
+        field_simp [hSr_pos.ne']
       rw [hpull, abs_mul, abs_of_pos (by positivity : (0:ℝ) < 1 / (↑Hf.seeds : ℝ))]
       exact mul_le_mul_of_nonneg_left
         (Finset.abs_sum_le_sum_abs _ _) (by positivity)
@@ -574,7 +579,8 @@ theorem L6_4c_leftover_hash_extractor
           apply mul_le_mul_of_nonneg_left _ (by norm_num)
           exact mul_le_mul_of_nonneg_left hT2 (by positivity)
       _ = (1 / 2) * Real.sqrt (((M + 1 : ℕ) : ℝ) * maxProb p) := by
-          field_simp
+          field_simp [hSr_pos.ne']
+          ring
   -- ===== (5) Entropy accounting: (M+1)·p_max ≤ ε² =====
   have hpm : maxProb p ≤ Real.exp (-k) := by
     have hlog : Real.log (maxProb p) ≤ -k := by
@@ -589,9 +595,11 @@ theorem L6_4c_leftover_hash_extractor
     have hε2 : Real.exp (log ((M + 1 : ℕ) : ℝ) - k) ≤ ε ^ 2 := by
       have harg : log ((M + 1 : ℕ) : ℝ) - k ≤ Real.log (ε ^ 2) := by
         rw [Real.log_pow]
-        push_cast
         have hlog_inv : log (1 / ε) = -log ε := by rw [one_div, Real.log_inv]
         rw [hlog_inv] at hloss
+        -- Normalize the casts on BOTH sides so `log (↑M + 1)` and
+        -- `log ↑(M + 1)` are the same atom for linarith.
+        push_cast at hloss ⊢
         linarith
       calc Real.exp (log ((M + 1 : ℕ) : ℝ) - k)
           ≤ Real.exp (Real.log (ε ^ 2)) := Real.exp_le_exp.mpr harg

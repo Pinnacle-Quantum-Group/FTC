@@ -136,7 +136,7 @@ theorem classical_diverges_at_origin :
       simpa using (continuous_pow 2).tendsto (0 : ℝ)
     exact h.mono_left nhdsWithin_le_nhds
   · filter_upwards [self_mem_nhdsWithin] with r hr
-    exact pow_pos hr 2
+    exact Set.mem_Ioi.mpr (pow_pos (Set.mem_Ioi.mp hr) 2)
 
 theorem recursive_replaces_singularity (γ : ℝ) (hγ : 0 < γ) :
     Tendsto (expDampedMetric γ) atTop (nhds 0) ∧ 0 < bhAttractorDensity :=
