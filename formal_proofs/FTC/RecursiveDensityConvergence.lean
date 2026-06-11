@@ -80,10 +80,12 @@ theorem convergence_rate_geometric (f : ℕ → ℝ) (L r : ℝ) (C : ℝ)
     (hr0 : 0 ≤ r) (hr1 : r < 1) (hC : 0 < C)
     (hrate : ∀ n, |f n - L| ≤ C * r ^ n) :
     Filter.Tendsto f Filter.atTop (nhds L) := by
-  -- |f n - L| → 0 ⇒ f n → L. v4.5.0 has `tendsto_iff_norm_div_tendsto_zero`
-  -- (multiplicative form, sub via div); equivalent statement on ℝ uses
-  -- `tendsto_iff_dist_tendsto_zero` or unfolds `Tendsto`'s ε-N definition.
-  -- Stub: the exact composition lemma name in v4.5.0 needs verification.
-  sorry
+  -- |f n − L| → 0 ⇒ f n → L: squeeze `dist (f n) L = |f n − L|` between 0
+  -- and the geometric envelope `C·rⁿ → C·0 = 0`.
+  rw [tendsto_iff_dist_tendsto_zero]
+  simp only [Real.dist_eq]
+  apply squeeze_zero (fun n => abs_nonneg _) hrate
+  have h := (geometric_ratio_to_zero r hr0 hr1).const_mul C
+  simpa using h
 
 end FTC.RecursiveDensityConvergence

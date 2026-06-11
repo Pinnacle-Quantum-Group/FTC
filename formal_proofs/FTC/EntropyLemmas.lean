@@ -28,10 +28,57 @@ theorem L6_1_nonneg (D : ℕ → ℝ) (N : ℕ)
   apply mul_nonneg (le_of_lt (hD_pos n))
   rw [one_div]; exact log_nonneg (one_le_inv (hD_pos n) (hD_le n))
 
-theorem L6_1_maximality (N : ℕ) (hN : 0 < N) :
+/-- Each summand `x · log (1/x)` of `recursiveEntropy` is at most `1/2` on
+    `(0, 1]`. (The sharp constant is `1/e ≈ 0.368`; `1/2` suffices here and
+    follows from the elementary bound `log t ≤ t/2`, itself a consequence of
+    `log s ≤ s − 1` applied at `s = t/2` together with `log 2 ≤ 1`.) -/
+theorem entropy_term_le_half {x : ℝ} (hx : 0 < x) (hx1 : x ≤ 1) :
+    x * log (1 / x) ≤ 1 / 2 := by
+  have hlog_half : ∀ t : ℝ, 0 < t → log t ≤ t / 2 := by
+    intro t ht
+    have h1 : log (t / 2) ≤ t / 2 - 1 := log_le_sub_one_of_pos (by positivity)
+    have h2 : log 2 ≤ (2 : ℝ) - 1 := log_le_sub_one_of_pos (by norm_num)
+    have h3 : log t = log (t / 2) + log 2 := by
+      rw [← log_mul (by positivity) (by norm_num)]
+      norm_num
+    linarith
+  have hinv : 0 < 1 / x := by positivity
+  calc x * log (1 / x) ≤ x * ((1 / x) / 2) :=
+        mul_le_mul_of_nonneg_left (hlog_half _ hinv) hx.le
+    _ = 1 / 2 := by field_simp
+
+/-- **L6.1 maximality (corrected).** The original statement required only
+    `0 < N`, but it is FALSE at `N = 1`: taking `D 0 = e⁻¹` gives
+    `recursiveEntropy D 1 = e⁻¹ > 0 = 1 · log 1`. (The densities `D n ∈ (0,1]`
+    are not constrained to sum to 1, so the `N = 1` sum can be positive while
+    the bound is zero.) For `N ≥ 2` the bound holds: every term is `≤ 1/2`
+    (`entropy_term_le_half`) and `1/2 ≤ log 2 ≤ log N`, so the sum is at most
+    `N · log N`. -/
+theorem L6_1_maximality (N : ℕ) (hN : 2 ≤ N) :
     ∀ (D : ℕ → ℝ), (∀ n, 0 < D n) → (∀ n, D n ≤ 1) →
     recursiveEntropy D N ≤ ↑N * log ↑N := by
-  sorry
+  intro D hpos hle
+  unfold recursiveEntropy
+  have hlogN : (1 : ℝ) / 2 ≤ log ↑N := by
+    have h2N : (2 : ℝ) ≤ (N : ℝ) := by exact_mod_cast hN
+    have hN_pos : (0 : ℝ) < (N : ℝ) := by linarith
+    have hlog2 : (1 : ℝ) / 2 ≤ log 2 := by
+      -- log (1/2) ≤ 1/2 − 1 = −1/2, and log (1/2) = −log 2.
+      have h := log_le_sub_one_of_pos (show (0:ℝ) < 1 / 2 by norm_num)
+      rw [one_div, log_inv] at h
+      linarith
+    -- log is monotone on the positives (via exp/log inversion; the named
+    -- helper `log_le_log_of_le` lives later in this file, so inline it).
+    have hmono : log 2 ≤ log ↑N := by
+      rw [← Real.exp_le_exp, Real.exp_log (by norm_num : (0:ℝ) < 2),
+        Real.exp_log hN_pos]
+      exact h2N
+    linarith
+  have hterm : ∀ n ∈ Finset.range N, D n * log (1 / D n) ≤ log ↑N := fun n _ =>
+    le_trans (entropy_term_le_half (hpos n) (hle n)) hlogN
+  calc ∑ n in Finset.range N, D n * log (1 / D n)
+      ≤ ∑ _n in Finset.range N, log ↑N := Finset.sum_le_sum hterm
+    _ = ↑N * log ↑N := by rw [Finset.sum_const, Finset.card_range, nsmul_eq_mul]
 
 theorem L6_1_zero_when_certain (D : ℕ → ℝ) (N : ℕ)
     (hD : ∀ n, D n = 1) :
@@ -105,8 +152,9 @@ theorem T6_entropy_equals_bekenstein :
       • `minEntropy ≤ shannonEntropy`  (H_∞ is the most conservative entropy),
       • `minEntropy (uniform) = log N` (the maximal/full-entropy point).
     The leftover-hash / extractor bound (universal hash family applied to a
-    source with `H_∞ ≥ k` ⇒ output ε-close to uniform) is *stated* and left as
-    `sorry`; see the citation on that theorem. -/
+    source with `H_∞ ≥ k` ⇒ output ε-close to uniform) is fully proved below
+    (`L6_4c_leftover_hash_extractor`) via the classical collision-probability
+    + Cauchy–Schwarz argument; see the citations on that theorem. -/
 
 /-- The largest coordinate probability `p_max` of a distribution on
     `Fin (n+1)` (nonempty index type). Defined as the `Finset.max'` of the
@@ -248,23 +296,65 @@ def extractorOutput (Hf : UniversalHashFamily N M) (p : Fin N → ℝ) : Fin M �
   fun j => (1 / (↑Hf.seeds : ℝ)) *
     ∑ i, (∑ x in Finset.univ.filter (fun x => Hf.h i x = j), p x)
 
-/-- **L6.4c — Leftover Hash Lemma (extractor bound), STATEMENT ONLY.**
+/-- Per-seed pushforward of the source through hash `h i`: the mass landing
+    on output `j` when the seed is `i`. `extractorOutput` is its seed-average. -/
+def perSeedOutput (Hf : UniversalHashFamily N M) (p : Fin N → ℝ)
+    (i : Fin Hf.seeds) (j : Fin M) : ℝ :=
+  ∑ x in Finset.univ.filter (fun x => Hf.h i x = j), p x
+
+theorem extractorOutput_eq (Hf : UniversalHashFamily N M) (p : Fin N → ℝ)
+    (j : Fin M) :
+    extractorOutput Hf p j
+      = (1 / (↑Hf.seeds : ℝ)) * ∑ i, perSeedOutput Hf p i j := rfl
+
+theorem perSeedOutput_nonneg (Hf : UniversalHashFamily N M) (p : Fin N → ℝ)
+    (hp : ∀ x, 0 ≤ p x) (i : Fin Hf.seeds) (j : Fin M) :
+    0 ≤ perSeedOutput Hf p i j :=
+  Finset.sum_nonneg fun x _ => hp x
+
+/-- Each per-seed pushforward is a probability vector: the fibers of `h i`
+    partition the source space. -/
+theorem perSeedOutput_row_sum (Hf : UniversalHashFamily N M) (p : Fin N → ℝ)
+    (i : Fin Hf.seeds) :
+    ∑ j, perSeedOutput Hf p i j = ∑ x, p x :=
+  Finset.sum_fiberwise Finset.univ (Hf.h i) p
+
+/-- Collision form of the per-seed second moment:
+    `∑ⱼ q(i,j)² = ∑ₓ p x · q(i, h i x)`. -/
+theorem perSeedOutput_sq_sum (Hf : UniversalHashFamily N M) (p : Fin N → ℝ)
+    (i : Fin Hf.seeds) :
+    ∑ j, (perSeedOutput Hf p i j) ^ 2
+      = ∑ x, p x * perSeedOutput Hf p i (Hf.h i x) := by
+  calc ∑ j, (perSeedOutput Hf p i j) ^ 2
+      = ∑ j, ∑ x in Finset.univ.filter (fun x => Hf.h i x = j),
+          p x * perSeedOutput Hf p i (Hf.h i x) := by
+        refine Finset.sum_congr rfl fun j _ => ?_
+        rw [sq, show perSeedOutput Hf p i j
+          = ∑ x in Finset.univ.filter (fun x => Hf.h i x = j), p x from rfl,
+          Finset.sum_mul]
+        refine Finset.sum_congr rfl fun x hx => ?_
+        rw [Finset.mem_filter] at hx
+        rw [hx.2]
+    _ = ∑ x, p x * perSeedOutput Hf p i (Hf.h i x) :=
+        Finset.sum_fiberwise Finset.univ (Hf.h i) _
+
+/-- **L6.4c — Leftover Hash Lemma (extractor bound).**
     If the source distribution `p` on `Fin (N+1)` has `minEntropy p ≥ k` and `Hf`
     is 2-universal into `Fin (M+1)` with `log (↑(M+1)) ≤ k - 2 * log (1/ε)` (the
     standard LHL entropy-loss condition), then **the family's genuine extractor
     output** `extractorOutput Hf p` is within statistical distance `ε` of uniform.
 
-    The conclusion is bound to `extractorOutput Hf p` — the actual pushforward of
-    the source through the family — NOT an arbitrary distribution. A
-    non-extracted distribution (e.g. a point mass) is not of this form, so the
-    statement is sound and the `sorry` defers only the genuine LHL bound.
-
-    PROOF DEFERRED (`sorry`). Standard argument: bound the collision probability
-    of `(h, h(X))`, relate ‖·‖₂ to ‖·‖₁ via Cauchy–Schwarz, and invoke
-    2-universality. References: Impagliazzo–Levin–Luby (LHL, 1989);
-    Håstad–Impagliazzo–Levin–Luby (1999); NIST SP 800-90B §3.1.5. The
-    Mathlib-level proof needs collision-entropy machinery (`H₂ ≥ H_∞`) not
-    developed under the pinned Mathlib v4.5.0, hence the `sorry`. -/
+    PROOF (the classical collision-probability argument, fully formal):
+    with `q i j` the per-seed pushforward and `Δ i j := q i j − 1/(M+1)`,
+    * `∑ᵢⱼ Δ² = ∑ᵢⱼ q² − S/(M+1)` (row sums are 1),
+    * `∑ᵢⱼ q² = ∑ₓ ∑ᵧ p x · p y · #{i : h i x = h i y}
+              ≤ S·p_max + S/(M+1)` (diagonal: `#=S`, `∑p x² ≤ p_max`;
+      off-diagonal: 2-universality),
+    * Cauchy–Schwarz: `(∑ᵢⱼ |Δ|)² ≤ S·(M+1)·∑ᵢⱼ Δ² ≤ S²·(M+1)·p_max`,
+    * hence `statDist ≤ ½·√((M+1)·p_max) ≤ ½·√(exp(log(M+1) − k)) ≤ ½·ε ≤ ε`
+      using `p_max = exp(−minEntropy) ≤ exp(−k)` and the entropy-loss condition.
+    References: Impagliazzo–Levin–Luby (LHL, 1989);
+    Håstad–Impagliazzo–Levin–Luby (1999); NIST SP 800-90B §3.1.5. -/
 theorem L6_4c_leftover_hash_extractor
     (N M : ℕ) (Hf : UniversalHashFamily (N + 1) (M + 1))
     (p : Fin (N + 1) → ℝ) (hp_pos : ∀ i, 0 < p i) (hp_sum : ∑ i, p i = 1)
@@ -272,6 +362,254 @@ theorem L6_4c_leftover_hash_extractor
     (hk : k ≤ minEntropy p)
     (hloss : log (↑(M + 1) : ℝ) ≤ k - 2 * log (1 / ε)) :
     statDist (extractorOutput Hf p) (uniformDist M) ≤ ε := by
-  sorry  -- Leftover Hash Lemma (bound now tied to the genuine pushforward).
+  have hSr_pos : (0:ℝ) < (↑Hf.seeds : ℝ) := by exact_mod_cast Hf.seeds_pos
+  have hMr_pos : (0:ℝ) < ((M + 1 : ℕ) : ℝ) := by exact_mod_cast Nat.succ_pos M
+  have hpm_pos : 0 < maxProb p := maxProb_pos p hp_pos
+  -- ===== (1) Collision bound: ∑ᵢ ∑ⱼ q² ≤ S·p_max + S/(M+1) =====
+  have hcount_diag : ∀ x : Fin (N + 1),
+      (Finset.univ.filter (fun i => Hf.h i x = Hf.h i x)).card = Hf.seeds := by
+    intro x
+    rw [Finset.filter_true_of_mem (fun i _ => rfl), Finset.card_univ,
+      Fintype.card_fin]
+  have hcount_off : ∀ x y : Fin (N + 1), y ≠ x →
+      ((Finset.univ.filter (fun i => Hf.h i y = Hf.h i x)).card : ℝ)
+        ≤ (↑Hf.seeds : ℝ) / ((M + 1 : ℕ) : ℝ) := by
+    intro x y hyx
+    have h := Hf.two_universal y x hyx
+    rw [div_le_div_iff hSr_pos hMr_pos] at h
+    -- h : card · (M+1) ≤ 1 · S; goal: card ≤ S/(M+1)
+    rw [le_div_iff hMr_pos]
+    linarith
+  -- Per-seed collision mass, summed over seeds and reindexed:
+  have hsq_total : ∑ i, ∑ j, (perSeedOutput Hf p i j) ^ 2
+      ≤ (↑Hf.seeds : ℝ) * maxProb p
+        + (↑Hf.seeds : ℝ) / ((M + 1 : ℕ) : ℝ) := by
+    have hswap : ∑ i, ∑ j, (perSeedOutput Hf p i j) ^ 2
+        = ∑ x, p x * ∑ i, perSeedOutput Hf p i (Hf.h i x) := by
+      calc ∑ i, ∑ j, (perSeedOutput Hf p i j) ^ 2
+          = ∑ i, ∑ x, p x * perSeedOutput Hf p i (Hf.h i x) := by
+            exact Finset.sum_congr rfl fun i _ => perSeedOutput_sq_sum Hf p i
+        _ = ∑ x, ∑ i, p x * perSeedOutput Hf p i (Hf.h i x) := Finset.sum_comm
+        _ = ∑ x, p x * ∑ i, perSeedOutput Hf p i (Hf.h i x) := by
+            exact Finset.sum_congr rfl fun x _ => (Finset.mul_sum _ _ _).symm
+    rw [hswap]
+    -- Inner: ∑ᵢ q i (h i x) = ∑ᵧ (#collisions x y)·p y ≤ S·p x + S/(M+1)·∑_{y≠x} p y
+    have hinner : ∀ x : Fin (N + 1),
+        ∑ i, perSeedOutput Hf p i (Hf.h i x)
+          ≤ (↑Hf.seeds : ℝ) * p x + (↑Hf.seeds : ℝ) / ((M + 1 : ℕ) : ℝ) := by
+      intro x
+      have hexpand : ∑ i, perSeedOutput Hf p i (Hf.h i x)
+          = ∑ y, ((Finset.univ.filter (fun i => Hf.h i y = Hf.h i x)).card : ℝ)
+              * p y := by
+        calc ∑ i, perSeedOutput Hf p i (Hf.h i x)
+            = ∑ i, ∑ y, if Hf.h i y = Hf.h i x then p y else 0 := by
+              refine Finset.sum_congr rfl fun i _ => ?_
+              rw [perSeedOutput, Finset.sum_filter]
+          _ = ∑ y, ∑ i, if Hf.h i y = Hf.h i x then p y else 0 := Finset.sum_comm
+          _ = ∑ y, ((Finset.univ.filter
+                (fun i => Hf.h i y = Hf.h i x)).card : ℝ) * p y := by
+              refine Finset.sum_congr rfl fun y _ => ?_
+              rw [← Finset.sum_filter, Finset.sum_const, nsmul_eq_mul]
+      rw [hexpand]
+      -- split off the diagonal y = x
+      rw [← Finset.add_sum_erase _ _ (Finset.mem_univ x), hcount_diag x]
+      have hoff : ∑ y in Finset.univ.erase x,
+          ((Finset.univ.filter (fun i => Hf.h i y = Hf.h i x)).card : ℝ) * p y
+            ≤ (↑Hf.seeds : ℝ) / ((M + 1 : ℕ) : ℝ) := by
+        calc ∑ y in Finset.univ.erase x,
+            ((Finset.univ.filter (fun i => Hf.h i y = Hf.h i x)).card : ℝ) * p y
+            ≤ ∑ y in Finset.univ.erase x,
+                (↑Hf.seeds : ℝ) / ((M + 1 : ℕ) : ℝ) * p y := by
+              refine Finset.sum_le_sum fun y hy => ?_
+              have hyx : y ≠ x := Finset.ne_of_mem_erase hy
+              exact mul_le_mul_of_nonneg_right (hcount_off x y hyx) (hp_pos y).le
+          _ = (↑Hf.seeds : ℝ) / ((M + 1 : ℕ) : ℝ)
+                * ∑ y in Finset.univ.erase x, p y := by rw [Finset.mul_sum]
+          _ ≤ (↑Hf.seeds : ℝ) / ((M + 1 : ℕ) : ℝ) * 1 := by
+              apply mul_le_mul_of_nonneg_left _ (by positivity)
+              rw [← hp_sum]
+              exact Finset.sum_le_sum_of_subset_of_nonneg
+                (Finset.erase_subset x Finset.univ) (fun y _ _ => (hp_pos y).le)
+          _ = (↑Hf.seeds : ℝ) / ((M + 1 : ℕ) : ℝ) := mul_one _
+      linarith [hoff]
+    -- combine over x, using ∑ p x² ≤ p_max and ∑ p = 1
+    calc ∑ x, p x * ∑ i, perSeedOutput Hf p i (Hf.h i x)
+        ≤ ∑ x, p x * ((↑Hf.seeds : ℝ) * p x
+            + (↑Hf.seeds : ℝ) / ((M + 1 : ℕ) : ℝ)) := by
+          refine Finset.sum_le_sum fun x _ => ?_
+          exact mul_le_mul_of_nonneg_left (hinner x) (hp_pos x).le
+      _ = (↑Hf.seeds : ℝ) * ∑ x, p x * p x
+            + (↑Hf.seeds : ℝ) / ((M + 1 : ℕ) : ℝ) * ∑ x, p x := by
+          rw [Finset.mul_sum, Finset.mul_sum, ← Finset.sum_add_distrib]
+          refine Finset.sum_congr rfl fun x _ => ?_
+          ring
+      _ ≤ (↑Hf.seeds : ℝ) * maxProb p
+            + (↑Hf.seeds : ℝ) / ((M + 1 : ℕ) : ℝ) := by
+          rw [hp_sum, mul_one]
+          have hsum_sq : ∑ x, p x * p x ≤ maxProb p := by
+            calc ∑ x, p x * p x ≤ ∑ x, maxProb p * p x := by
+                  refine Finset.sum_le_sum fun x _ => ?_
+                  exact mul_le_mul_of_nonneg_right (le_maxProb p x) (hp_pos x).le
+              _ = maxProb p * ∑ x, p x := (Finset.mul_sum _ _ _).symm
+              _ = maxProb p := by rw [hp_sum, mul_one]
+          have := mul_le_mul_of_nonneg_left hsum_sq hSr_pos.le
+          linarith
+  -- ===== (2) Deviation second moment: ∑ᵢⱼ Δ² = ∑ᵢⱼ q² − S/(M+1) =====
+  have hrow : ∀ i, ∑ j, perSeedOutput Hf p i j = 1 := fun i => by
+    rw [perSeedOutput_row_sum, hp_sum]
+  have hdev : ∑ i, ∑ j, (perSeedOutput Hf p i j - 1 / ((M + 1 : ℕ) : ℝ)) ^ 2
+      = (∑ i, ∑ j, (perSeedOutput Hf p i j) ^ 2)
+        - (↑Hf.seeds : ℝ) / ((M + 1 : ℕ) : ℝ) := by
+    have hper : ∀ i, ∑ j, (perSeedOutput Hf p i j - 1 / ((M + 1 : ℕ) : ℝ)) ^ 2
+        = (∑ j, (perSeedOutput Hf p i j) ^ 2) - 1 / ((M + 1 : ℕ) : ℝ) := by
+      intro i
+      have hexp : ∀ j : Fin (M + 1),
+          (perSeedOutput Hf p i j - 1 / ((M + 1 : ℕ) : ℝ)) ^ 2
+            = (perSeedOutput Hf p i j) ^ 2
+              - 2 / ((M + 1 : ℕ) : ℝ) * perSeedOutput Hf p i j
+              + (1 / ((M + 1 : ℕ) : ℝ)) ^ 2 := by
+        intro j
+        field_simp
+        ring
+      rw [Finset.sum_congr rfl fun j _ => hexp j]
+      rw [Finset.sum_add_distrib, Finset.sum_sub_distrib, ← Finset.mul_sum,
+        hrow i, Finset.sum_const, Finset.card_univ, Fintype.card_fin,
+        nsmul_eq_mul]
+      field_simp [hMr_pos.ne']
+      ring
+    rw [Finset.sum_congr rfl fun i _ => hper i, Finset.sum_sub_distrib,
+      Finset.sum_const, Finset.card_univ, Fintype.card_fin, nsmul_eq_mul,
+      mul_one_div]
+  have hdev_le : ∑ i, ∑ j, (perSeedOutput Hf p i j - 1 / ((M + 1 : ℕ) : ℝ)) ^ 2
+      ≤ (↑Hf.seeds : ℝ) * maxProb p := by
+    rw [hdev]
+    linarith [hsq_total]
+  -- ===== (3) Cauchy–Schwarz: ℓ¹ deviation vs ℓ² deviation =====
+  have habs_sq : (∑ z : Fin Hf.seeds × Fin (M + 1),
+        |perSeedOutput Hf p z.1 z.2 - 1 / ((M + 1 : ℕ) : ℝ)|) ^ 2
+      ≤ ((↑Hf.seeds : ℝ) * ((M + 1 : ℕ) : ℝ))
+        * ((↑Hf.seeds : ℝ) * maxProb p) := by
+    have hcs := Finset.sum_mul_sq_le_sq_mul_sq Finset.univ
+      (fun z : Fin Hf.seeds × Fin (M + 1) =>
+        |perSeedOutput Hf p z.1 z.2 - 1 / ((M + 1 : ℕ) : ℝ)|)
+      (fun _ => (1 : ℝ))
+    simp only [mul_one, one_pow] at hcs
+    have hsq_abs : ∑ z : Fin Hf.seeds × Fin (M + 1),
+        |perSeedOutput Hf p z.1 z.2 - 1 / ((M + 1 : ℕ) : ℝ)| ^ 2
+          = ∑ i, ∑ j, (perSeedOutput Hf p i j - 1 / ((M + 1 : ℕ) : ℝ)) ^ 2 := by
+      rw [Fintype.sum_prod_type]
+      exact Finset.sum_congr rfl fun i _ =>
+        Finset.sum_congr rfl fun j _ => sq_abs _
+    have hcard : ∑ _z : Fin Hf.seeds × Fin (M + 1), (1:ℝ)
+        = (↑Hf.seeds : ℝ) * ((M + 1 : ℕ) : ℝ) := by
+      rw [Finset.sum_const, Finset.card_univ, Fintype.card_prod,
+        Fintype.card_fin, Fintype.card_fin, nsmul_eq_mul, mul_one]
+      push_cast
+      ring
+    rw [hsq_abs, hcard] at hcs
+    calc (∑ z : Fin Hf.seeds × Fin (M + 1),
+          |perSeedOutput Hf p z.1 z.2 - 1 / ((M + 1 : ℕ) : ℝ)|) ^ 2
+        ≤ (∑ i, ∑ j, (perSeedOutput Hf p i j - 1 / ((M + 1 : ℕ) : ℝ)) ^ 2)
+            * ((↑Hf.seeds : ℝ) * ((M + 1 : ℕ) : ℝ)) := hcs
+      _ ≤ ((↑Hf.seeds : ℝ) * maxProb p)
+            * ((↑Hf.seeds : ℝ) * ((M + 1 : ℕ) : ℝ)) := by
+          apply mul_le_mul_of_nonneg_right hdev_le (by positivity)
+      _ = ((↑Hf.seeds : ℝ) * ((M + 1 : ℕ) : ℝ))
+            * ((↑Hf.seeds : ℝ) * maxProb p) := by ring
+  -- ===== (4) statDist ≤ ½·√((M+1)·p_max) =====
+  have hstat : statDist (extractorOutput Hf p) (uniformDist M)
+      ≤ (1 / 2) * Real.sqrt (((M + 1 : ℕ) : ℝ) * maxProb p) := by
+    unfold statDist uniformDist
+    -- per-coordinate: |Y j − u| ≤ (1/S)·∑ᵢ |q i j − u|
+    have hcoord : ∀ j : Fin (M + 1),
+        |extractorOutput Hf p j - 1 / ((M + 1 : ℕ) : ℝ)|
+          ≤ (1 / (↑Hf.seeds : ℝ))
+            * ∑ i, |perSeedOutput Hf p i j - 1 / ((M + 1 : ℕ) : ℝ)| := by
+      intro j
+      have hpull : extractorOutput Hf p j - 1 / ((M + 1 : ℕ) : ℝ)
+          = (1 / (↑Hf.seeds : ℝ))
+            * ∑ i, (perSeedOutput Hf p i j - 1 / ((M + 1 : ℕ) : ℝ)) := by
+        rw [extractorOutput_eq, Finset.sum_sub_distrib, Finset.sum_const,
+          Finset.card_univ, Fintype.card_fin, nsmul_eq_mul]
+        field_simp
+      rw [hpull, abs_mul, abs_of_pos (by positivity : (0:ℝ) < 1 / (↑Hf.seeds : ℝ))]
+      exact mul_le_mul_of_nonneg_left
+        (Finset.abs_sum_le_sum_abs _ _) (by positivity)
+    -- sum over j, fold into the product-indexed total, apply C–S
+    have hT : ∑ j, |extractorOutput Hf p j - 1 / ((M + 1 : ℕ) : ℝ)|
+        ≤ (1 / (↑Hf.seeds : ℝ)) * ∑ z : Fin Hf.seeds × Fin (M + 1),
+            |perSeedOutput Hf p z.1 z.2 - 1 / ((M + 1 : ℕ) : ℝ)| := by
+      calc ∑ j, |extractorOutput Hf p j - 1 / ((M + 1 : ℕ) : ℝ)|
+          ≤ ∑ j, (1 / (↑Hf.seeds : ℝ))
+              * ∑ i, |perSeedOutput Hf p i j - 1 / ((M + 1 : ℕ) : ℝ)| :=
+            Finset.sum_le_sum fun j _ => hcoord j
+        _ = (1 / (↑Hf.seeds : ℝ)) * ∑ j, ∑ i,
+              |perSeedOutput Hf p i j - 1 / ((M + 1 : ℕ) : ℝ)| :=
+            (Finset.mul_sum _ _ _).symm
+        _ = (1 / (↑Hf.seeds : ℝ)) * ∑ z : Fin Hf.seeds × Fin (M + 1),
+              |perSeedOutput Hf p z.1 z.2 - 1 / ((M + 1 : ℕ) : ℝ)| := by
+            rw [Fintype.sum_prod_type]
+            rw [Finset.sum_comm]
+    -- √ of the C–S bound: T ≤ S·√((M+1)·p_max)
+    have hT2 : ∑ z : Fin Hf.seeds × Fin (M + 1),
+        |perSeedOutput Hf p z.1 z.2 - 1 / ((M + 1 : ℕ) : ℝ)|
+          ≤ (↑Hf.seeds : ℝ) * Real.sqrt (((M + 1 : ℕ) : ℝ) * maxProb p) := by
+      have hnn : (0:ℝ) ≤ ∑ z : Fin Hf.seeds × Fin (M + 1),
+          |perSeedOutput Hf p z.1 z.2 - 1 / ((M + 1 : ℕ) : ℝ)| :=
+        Finset.sum_nonneg fun z _ => abs_nonneg _
+      have hrearrange : ((↑Hf.seeds : ℝ) * ((M + 1 : ℕ) : ℝ))
+          * ((↑Hf.seeds : ℝ) * maxProb p)
+          = ((↑Hf.seeds : ℝ)) ^ 2 * (((M + 1 : ℕ) : ℝ) * maxProb p) := by ring
+      have h1 := Real.sqrt_le_sqrt (hrearrange ▸ habs_sq)
+      rw [Real.sqrt_sq hnn] at h1
+      rw [Real.sqrt_mul (by positivity) (((M + 1 : ℕ) : ℝ) * maxProb p),
+        Real.sqrt_sq hSr_pos.le] at h1
+      exact h1
+    calc (1 / 2 : ℝ) * ∑ j, |extractorOutput Hf p j - 1 / ((M + 1 : ℕ) : ℝ)|
+        ≤ (1 / 2) * ((1 / (↑Hf.seeds : ℝ)) * ∑ z : Fin Hf.seeds × Fin (M + 1),
+            |perSeedOutput Hf p z.1 z.2 - 1 / ((M + 1 : ℕ) : ℝ)|) := by
+          apply mul_le_mul_of_nonneg_left hT (by norm_num)
+      _ ≤ (1 / 2) * ((1 / (↑Hf.seeds : ℝ))
+            * ((↑Hf.seeds : ℝ) * Real.sqrt (((M + 1 : ℕ) : ℝ) * maxProb p))) := by
+          apply mul_le_mul_of_nonneg_left _ (by norm_num)
+          exact mul_le_mul_of_nonneg_left hT2 (by positivity)
+      _ = (1 / 2) * Real.sqrt (((M + 1 : ℕ) : ℝ) * maxProb p) := by
+          field_simp
+  -- ===== (5) Entropy accounting: (M+1)·p_max ≤ ε² =====
+  have hpm : maxProb p ≤ Real.exp (-k) := by
+    have hlog : Real.log (maxProb p) ≤ -k := by
+      unfold minEntropy at hk
+      linarith
+    calc maxProb p = Real.exp (Real.log (maxProb p)) :=
+          (Real.exp_log hpm_pos).symm
+      _ ≤ Real.exp (-k) := Real.exp_le_exp.mpr hlog
+  have hMpm : ((M + 1 : ℕ) : ℝ) * maxProb p ≤ ε ^ 2 := by
+    have hM_eq : ((M + 1 : ℕ) : ℝ)
+        = Real.exp (Real.log ((M + 1 : ℕ) : ℝ)) := (Real.exp_log hMr_pos).symm
+    have hε2 : Real.exp (log ((M + 1 : ℕ) : ℝ) - k) ≤ ε ^ 2 := by
+      have harg : log ((M + 1 : ℕ) : ℝ) - k ≤ Real.log (ε ^ 2) := by
+        rw [Real.log_pow]
+        push_cast
+        have hlog_inv : log (1 / ε) = -log ε := by rw [one_div, Real.log_inv]
+        rw [hlog_inv] at hloss
+        linarith
+      calc Real.exp (log ((M + 1 : ℕ) : ℝ) - k)
+          ≤ Real.exp (Real.log (ε ^ 2)) := Real.exp_le_exp.mpr harg
+        _ = ε ^ 2 := Real.exp_log (by positivity)
+    calc ((M + 1 : ℕ) : ℝ) * maxProb p
+        ≤ ((M + 1 : ℕ) : ℝ) * Real.exp (-k) :=
+          mul_le_mul_of_nonneg_left hpm hMr_pos.le
+      _ = Real.exp (log ((M + 1 : ℕ) : ℝ) - k) := by
+          nth_rewrite 1 [hM_eq]
+          rw [← Real.exp_add]
+          ring_nf
+      _ ≤ ε ^ 2 := hε2
+  -- ===== (6) Conclude =====
+  calc statDist (extractorOutput Hf p) (uniformDist M)
+      ≤ (1 / 2) * Real.sqrt (((M + 1 : ℕ) : ℝ) * maxProb p) := hstat
+    _ ≤ (1 / 2) * Real.sqrt (ε ^ 2) := by
+        apply mul_le_mul_of_nonneg_left (Real.sqrt_le_sqrt hMpm) (by norm_num)
+    _ = (1 / 2) * ε := by rw [Real.sqrt_sq hε.le]
+    _ ≤ ε := by linarith
 
 end FTC.EntropyLemmas

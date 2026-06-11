@@ -240,8 +240,16 @@ theorem L3_3a_ricci_from_metric (g₀ R : ℝ) (n : ℕ) (hn : 0 < n) :
     ricciFlowMetric g₀ R n - g₀ = -2 * R / (↑n)^2 := by
   unfold ricciFlowMetric; ring
 
+/-- Ricci curvature recovered from the density product `D·G`.
+
+    SIGN FIX: under the flow `∂g/∂t = −2R` sampled at `t = 1/n²` with
+    `g₀ = 1`, the metric ratio is `D·G = 1 − 2R/n²`, so inverting for the
+    curvature gives `R = (n²/2)·(1 − D·G)` — with a *plus* sign. The previous
+    `−(n²/2)·(…)` recovered `−R`, which made the `L3_3c` error claim
+    `|R⁽ⁿ⁾ − R| = O(1/n²)` unprovable (the difference was the constant
+    `2|R|`, not `O(1/n²)`). -/
 def ricciFromDensity (g₀ : ℝ) (D G : ℝ) (n : ℕ) : ℝ :=
-  -(↑n ^ 2 / 2) * (1 - D * G)
+  (↑n ^ 2 / 2) * (1 - D * G)
 
 theorem L3_3a_non_circular (g₀ R : ℝ) (hR : R ≠ 0) :
     ∃ (F G : ℕ → ℝ), ∀ n : ℕ, 0 < n →
@@ -263,9 +271,24 @@ theorem L3_3b_scale_decreases_with_curvature (R₁ R₂ : ℝ)
 
 /-! ## L3.3c — Fixed-Scale Ricci: R^(n*) = R + O(1/n*²) -/
 
-theorem L3_3c_fixed_scale_error (R : ℝ) (n : ℕ) (hn : 0 < n) :
-    ∃ C : ℝ, |ricciFromDensity 1 (1 - 2 * R / (↑n)^2) 1 n - R| ≤ C / (↑n)^2 := by
-  sorry
+/-- **L3.3c (strengthened).** With the sign-corrected `ricciFromDensity`, the
+    fixed-scale recovery is *exact*: plugging the flow-sampled density
+    `D = 1 − 2R/n²` (with `G = 1`) back into the curvature reconstruction
+    returns `R` on the nose, so the `O(1/n²)` error bound holds with the
+    *uniform* constant `C = 0` — quantified over all `n`, not per-`n` (a
+    per-`n` constant would make the claim vacuous). -/
+theorem L3_3c_fixed_scale_error (R : ℝ) :
+    ∃ C : ℝ, 0 ≤ C ∧ ∀ n : ℕ, 0 < n →
+      |ricciFromDensity 1 (1 - 2 * R / (↑n)^2) 1 n - R| ≤ C / (↑n)^2 := by
+  refine ⟨0, le_refl 0, fun n hn => ?_⟩
+  have hn0 : ((n : ℝ))^2 ≠ 0 := by
+    have : (0:ℝ) < (n:ℝ) := by exact_mod_cast hn
+    positivity
+  have hexact : ricciFromDensity 1 (1 - 2 * R / (↑n)^2) 1 n = R := by
+    unfold ricciFromDensity
+    field_simp
+    ring
+  rw [hexact, sub_self, abs_zero, zero_div]
 
 /-! ## T3 Summary -/
 
