@@ -3,8 +3,12 @@
   Pinnacle Quantum Group — April 2026
 
   L6.1: Shannon axiom compliance (revised: weighted additivity)
-  L6.2: Classical limit — single-depth = Shannon entropy
-  L6.3: Bekenstein bound — at η=1: S = π nats per DOF, I = 2π nats total
+  L6.2: Classical limit — recursive entropy of a depth density padded with
+        the "certain" value 1 equals Shannon entropy at depth N (a genuine
+        bridge between the ℕ-indexed and Fin-indexed entropy sums)
+  L6.3: Bekenstein bound — at η=1: S = π nats per DOF, and the capacity
+        2π is derived as 2 × (states × per-state entropy); the factor 2
+        (two DOF) remains a modeling input
   Reference: LEMMA_DERIVATIONS.md FTC T6
 -/
 import Mathlib
@@ -28,11 +32,12 @@ theorem L6_1_nonneg (D : ℕ → ℝ) (N : ℕ)
   apply mul_nonneg (le_of_lt (hD_pos n))
   rw [one_div]; exact log_nonneg (one_le_inv (hD_pos n) (hD_le n))
 
-/-- Each summand `x · log (1/x)` of `recursiveEntropy` is at most `1/2` on
-    `(0, 1]`. (The sharp constant is `1/e ≈ 0.368`; `1/2` suffices here and
+/-- Each summand `x · log (1/x)` of `recursiveEntropy` is at most `1/2` for
+    every `x > 0` (no upper bound on `x` is needed: for `x ≥ 1` the term is
+    nonpositive). The sharp constant is `1/e ≈ 0.368`; `1/2` suffices here and
     follows from the elementary bound `log t ≤ t/2`, itself a consequence of
-    `log s ≤ s − 1` applied at `s = t/2` together with `log 2 ≤ 1`.) -/
-theorem entropy_term_le_half {x : ℝ} (hx : 0 < x) (hx1 : x ≤ 1) :
+    `log s ≤ s − 1` applied at `s = t/2` together with `log 2 ≤ 1`. -/
+theorem entropy_term_le_half {x : ℝ} (hx : 0 < x) :
     x * log (1 / x) ≤ 1 / 2 := by
   have hlog_half : ∀ t : ℝ, 0 < t → log t ≤ t / 2 := by
     intro t ht
@@ -47,17 +52,18 @@ theorem entropy_term_le_half {x : ℝ} (hx : 0 < x) (hx1 : x ≤ 1) :
         mul_le_mul_of_nonneg_left (hlog_half _ hinv) hx.le
     _ = 1 / 2 := by field_simp
 
-/-- **L6.1 maximality (corrected).** The original statement required only
-    `0 < N`, but it is FALSE at `N = 1`: taking `D 0 = e⁻¹` gives
-    `recursiveEntropy D 1 = e⁻¹ > 0 = 1 · log 1`. (The densities `D n ∈ (0,1]`
-    are not constrained to sum to 1, so the `N = 1` sum can be positive while
-    the bound is zero.) For `N ≥ 2` the bound holds: every term is `≤ 1/2`
+/-- **L6.1 maximality (corrected, strengthened).** The original statement
+    required only `0 < N`, but it is FALSE at `N = 1`: taking `D 0 = e⁻¹` gives
+    `recursiveEntropy D 1 = e⁻¹ > 0 = 1 · log 1`. (The densities `D n` are not
+    constrained to sum to 1, so the `N = 1` sum can be positive while the bound
+    is zero.) For `N ≥ 2` the bound holds for *every* positive density — no
+    upper bound `D n ≤ 1` is needed: every term is `≤ 1/2`
     (`entropy_term_le_half`) and `1/2 ≤ log 2 ≤ log N`, so the sum is at most
     `N · log N`. -/
 theorem L6_1_maximality (N : ℕ) (hN : 2 ≤ N) :
-    ∀ (D : ℕ → ℝ), (∀ n, 0 < D n) → (∀ n, D n ≤ 1) →
+    ∀ (D : ℕ → ℝ), (∀ n, 0 < D n) →
     recursiveEntropy D N ≤ ↑N * log ↑N := by
-  intro D hpos hle
+  intro D hpos
   unfold recursiveEntropy
   have hlogN : (1 : ℝ) / 2 ≤ log ↑N := by
     have h2N : (2 : ℝ) ≤ (N : ℝ) := by exact_mod_cast hN
@@ -78,7 +84,7 @@ theorem L6_1_maximality (N : ℕ) (hN : 2 ≤ N) :
       exact h2N
     linarith
   have hterm : ∀ n ∈ Finset.range N, D n * log (1 / D n) ≤ log ↑N := fun n _ =>
-    le_trans (entropy_term_le_half (hpos n) (hle n)) hlogN
+    le_trans (entropy_term_le_half (hpos n)) hlogN
   calc ∑ n in Finset.range N, D n * log (1 / D n)
       ≤ ∑ _n in Finset.range N, log ↑N := Finset.sum_le_sum hterm
     _ = ↑N * log ↑N := by rw [Finset.sum_const, Finset.card_range, nsmul_eq_mul]
@@ -96,9 +102,21 @@ theorem L6_1_zero_when_certain (D : ℕ → ℝ) (N : ℕ)
 def shannonEntropy (p : Fin N → ℝ) : ℝ :=
   ∑ i, p i * log (1 / p i)
 
-theorem L6_2_single_depth_is_shannon (p : Fin N → ℝ)
-    (hp_pos : ∀ i, 0 < p i) (hp_sum : ∑ i, p i = 1) :
-    shannonEntropy p = ∑ i, p i * log (1 / p i) := rfl
+/-- **L6.2 (classical limit).** Embedding a distribution `p : Fin N → ℝ` as a
+    depth density (padded beyond depth `N` with the "certain" value 1, cf.
+    `L6_1_zero_when_certain`) makes recursive entropy at depth `N` equal to
+    Shannon entropy. This is the actual bridge between the ℕ-indexed
+    `recursiveEntropy` and the `Fin`-indexed `shannonEntropy`; the equality of
+    sums holds unconditionally — no positivity or normalization hypotheses are
+    needed. -/
+theorem L6_2_single_depth_is_shannon (p : Fin N → ℝ) :
+    recursiveEntropy (fun k => if h : k < N then p ⟨k, h⟩ else 1) N
+      = shannonEntropy p := by
+  unfold recursiveEntropy shannonEntropy
+  rw [← Fin.sum_univ_eq_sum_range
+      (fun k => (if h : k < N then p ⟨k, h⟩ else 1)
+        * log (1 / (if h : k < N then p ⟨k, h⟩ else 1))) N]
+  exact Finset.sum_congr rfl fun i _ => by rw [dif_pos i.isLt]
 
 theorem L6_2_binary_entropy (p : ℝ) (hp0 : 0 < p) (hp1 : p < 1) :
     p * log (1 / p) + (1 - p) * log (1 / (1 - p)) ≥ 0 := by
@@ -133,15 +151,33 @@ theorem L6_3_entropy_per_dof :
 
 theorem L6_3_mutual_info : bekensteinCapacity = 2 * π := rfl
 
+/-- Two DOF, each carrying the saturation entropy
+    `e^π · (e^{-π} · log (1/e^{-π})) = π` (`L6_3_entropy_per_dof`), give exactly
+    the Bekenstein capacity `2π`: the capacity is reached by evaluating the
+    entropy formula, not by comparing two definitions. -/
+theorem L6_3_capacity_from_entropy :
+    2 * (bekensteinStates * (bekensteinProb * log (1 / bekensteinProb)))
+      = bekensteinCapacity := by
+  rw [L6_3_entropy_per_dof]
+  rfl
+
 theorem L6_3_bekenstein_positive : 0 < bekensteinCapacity := by
   unfold bekensteinCapacity; linarith [pi_pos]
 
 /-! ## T6 Summary -/
 
+/-- **T6 (Entropy = Bekenstein).** The Bekenstein capacity `2π` is *derived*
+    from the entropy formula: two degrees of freedom, each contributing
+    `states × (prob × log (1/prob))` nats at saturation, total exactly
+    `bekensteinCapacity`; moreover the state count and per-state probability
+    normalize (`e^π · e^{-π} = 1`). The factor 2 (two DOF) remains a modeling
+    input, but the `2π` on the right now arrives via the entropy expression
+    rather than by definitional reflexivity. -/
 theorem T6_entropy_equals_bekenstein :
-    entropyPerDOF = π ∧ bekensteinCapacity = 2 * π ∧
-    bekensteinStates * bekensteinProb = 1 :=
-  ⟨rfl, rfl, L6_3_prob_times_states⟩
+    2 * (bekensteinStates * (bekensteinProb * log (1 / bekensteinProb)))
+        = bekensteinCapacity
+    ∧ bekensteinStates * bekensteinProb = 1 :=
+  ⟨L6_3_capacity_from_entropy, L6_3_prob_times_states⟩
 
 /-! ## L6.4 — Min-Entropy (H_∞) and the Leftover-Hash Extractor Bound
     (DM-TRNG anchor: SP 800-90B min-entropy + SP 800-90B §3.1.5 vetted

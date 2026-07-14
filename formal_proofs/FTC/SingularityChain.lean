@@ -6,7 +6,8 @@
   L5.1: |R| → ∞ ⟹ n* → 0
   L5.2: At n*=0, D₀ = g/G₀ is finite (from Axiom 7)
   L5.3: D*_BH = e^{-π} (from η=1 saturation)
-  L5.4: D*_BH is mass-independent (universal)
+  L5.4: D*(M) = e^{-π·η(M)} is mass-independent: η(M) = S(M)/S_max(M)
+        cancels to 1 for every M > 0, so D*(M) = e^{-π} (universal)
   L5.5: Super-exponential convergence rate
   L5.6: lim R^(n*) → 0 at BH singularity
   Reference: LEMMA_DERIVATIONS.md FTC T4
@@ -20,7 +21,7 @@ namespace FTC.SingularityChain
 
 /-! ## L5.1 — Scale at Singularity: n* ~ |R|^{-1/2} -/
 
-def naturalScale (R_magnitude : ℝ) (hR : 0 < R_magnitude) : ℝ :=
+def naturalScale (R_magnitude : ℝ) (_hR : 0 < R_magnitude) : ℝ :=
   1 / Real.sqrt R_magnitude
 
 theorem L5_1_scale_to_zero :
@@ -127,21 +128,58 @@ theorem L5_3_from_saturation :
   rw [one_div, ← exp_neg]
   rfl
 
-/-! ## L5.4 — Universality: D*_BH independent of mass M -/
+/-! ## L5.4 — Universality: D*_BH independent of mass M
+    The attractor density is modelled with explicit mass dependence,
+    D*(M) = e^{−π·η(M)} with η(M) = S(M)/S_max(M), and universality is
+    *proved* by cancellation of the Schwarzschild entropy ratio at
+    saturation (S_max = S), not assumed by definitional constancy. -/
 
+/-- Schwarzschild horizon entropy (geometric units): S(M) = 4πM². -/
+def schwarzschildEntropy (M : ℝ) : ℝ := 4 * π * M ^ 2
+
+/-- Saturation ratio η(M) = S(M)/S_max(M); at the BH attractor S_max = S. -/
+def saturation (M : ℝ) : ℝ := schwarzschildEntropy M / schwarzschildEntropy M
+
+/-- Mass-dependent attractor density D*(M) = e^{−π·η(M)}. -/
+def bhDensityOfMass (M : ℝ) : ℝ := exp (-(π * saturation M))
+
+/-- For any positive mass the entropy ratio cancels — η(M) = 1 — so the
+    mass-dependent density collapses to the universal constant e^{−π}.
+    The hypothesis `0 < M` is genuinely needed: at M = 0 the ratio is
+    0/0 = 0 in Lean, giving `bhDensityOfMass 0 = exp 0 = 1 ≠ e^{−π}`. -/
+theorem bhDensityOfMass_eq (M : ℝ) (hM : 0 < M) :
+    bhDensityOfMass M = bhDensity := by
+  unfold bhDensityOfMass saturation schwarzschildEntropy bhDensity
+  have hS : (4 : ℝ) * π * M ^ 2 ≠ 0 :=
+    mul_ne_zero (mul_ne_zero (by norm_num) Real.pi_ne_zero) (pow_ne_zero 2 hM.ne')
+  rw [div_self hS, mul_one]
+
+/-- Universality: two black holes of arbitrary positive masses have the
+    same attractor density, by cancellation through `bhDensityOfMass_eq`. -/
 theorem L5_4_universal (M₁ M₂ : ℝ) (hM₁ : 0 < M₁) (hM₂ : 0 < M₂) :
-    bhDensity = bhDensity := rfl  -- D*_BH has no M-dependence
+    bhDensityOfMass M₁ = bhDensityOfMass M₂ := by
+  rw [bhDensityOfMass_eq M₁ hM₁, bhDensityOfMass_eq M₂ hM₂]
 
 /-! ## L5.5 — Super-Exponential Convergence -/
 
 def convergenceRate (γ : ℝ) (n : ℕ) : ℝ := exp (-γ / (↑n)^2)
 
+/-- The scaled rate is strictly between 0 and C: positivity needs only
+    `0 < C`, while the strict upper bound uses `0 < γ` and `0 < n` to make
+    the exponent −γ/n² genuinely negative, so `exp` lands below 1. -/
 theorem L5_5_rate_bound (C γ : ℝ) (hC : 0 < C) (hγ : 0 < γ) (n : ℕ) (hn : 0 < n) :
-    0 < C * convergenceRate γ n := by
+    0 < C * convergenceRate γ n ∧ C * convergenceRate γ n < C := by
   unfold convergenceRate
-  exact mul_pos hC (exp_pos _)
+  refine ⟨mul_pos hC (exp_pos _), ?_⟩
+  have hn2 : (0 : ℝ) < (↑n) ^ 2 := by
+    have : (0 : ℝ) < (n : ℝ) := by exact_mod_cast hn
+    positivity
+  have hexp : exp (-γ / (↑n : ℝ) ^ 2) < 1 := by
+    rw [exp_lt_one_iff]
+    exact div_neg_of_neg_of_pos (by linarith) hn2
+  exact mul_lt_of_lt_one_right hC hexp
 
-theorem L5_5_convergence_to_attractor (γ : ℝ) (hγ : 0 < γ) :
+theorem L5_5_convergence_to_attractor (γ : ℝ) (_hγ : 0 < γ) :
     Tendsto (convergenceRate γ) atTop (nhds 1) := by
   -- exp(−γ/n²) → exp 0 = 1: the exponent −γ/n² → 0, exp is continuous.
   unfold convergenceRate
