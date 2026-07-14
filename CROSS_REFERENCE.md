@@ -10,7 +10,7 @@ The complete lemma derivation mapping for the PQG framework is maintained in:
 | Theorem | Status | Key Lemmas |
 |---------|--------|------------|
 | FTC T3 (Curvature Convergence) | **TIGHT** | L3.1 pointwise, L3.2a uniform Cauchy on compact K, L3.3a-c Ricci flow |
-| FTC T4 (Singularity Resolution) | **TIGHT (BH)** | L5.1-L5.7 complete chain |
+| FTC T4 (Singularity Resolution) | **TIGHT (BH)** | L5.1-L5.6 complete chain |
 | FTC T6 (Entropy = Bekenstein) | **TIGHT** | L6.1-L6.3 Shannon + classical limit + Bekenstein |
 
 ## Key FTC Results
