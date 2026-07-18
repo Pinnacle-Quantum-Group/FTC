@@ -274,3 +274,52 @@ Axiomatic replacements for set cardinality, continuity, power sets, and measure 
 
 These companion papers provide the logical foundation for abandoning Cantorian cardinal hierarchies and adopting **recursive fractal structures** as the primary ontological and mathematical substrate.
 
+
+
+---
+
+## Machine-Checked Verification and Falsifiability
+
+The core results above are formalized in Lean 4 (against a pinned Mathlib
+snapshot) under [`formal_proofs/FTC/`](formal_proofs/FTC/). Every push
+builds all proof files and audits their axiom footprint in CI
+([`.github/workflows/lean.yml`](.github/workflows/lean.yml)).
+
+### Claim → theorem map
+
+| Claim | Lean theorem | File |
+|---|---|---|
+| T3: curvature convergence | `FTC.CurvatureConvergence.T3_curvature_convergence_summary` | `CurvatureConvergence.lean` |
+| T4: singularity resolution | `FTC.SingularityChain.T4_singularity_resolution` | `SingularityChain.lean` |
+| T6: recursive entropy saturates the Bekenstein bound | `FTC.EntropyLemmas.T6_entropy_equals_bekenstein` | `EntropyLemmas.lean` |
+| L6.1: Shannon-axiom compliance (maximality) | `FTC.EntropyLemmas.L6_1_maximality` | `EntropyLemmas.lean` |
+| L6.4c: leftover-hash extractor bound | `FTC.EntropyLemmas.L6_4c_leftover_hash_extractor` | `EntropyLemmas.lean` |
+| Classical curvature diverges; recursive replacement stays finite | `FTC.SingularityResolution.recursive_replaces_singularity` | `SingularityResolution.lean` |
+
+The full audited list lives in
+[`formal_proofs/FTC/AxiomAudit.lean`](formal_proofs/FTC/AxiomAudit.lean).
+
+### Reproducing the verification
+
+```bash
+lake exe cache get   # fetch the Mathlib olean cache (optional, much faster)
+lake build           # compile every module under formal_proofs/
+lake env lean formal_proofs/FTC/AxiomAudit.lean   # axiom footprint of each headline theorem
+```
+
+The toolchain is pinned by `lean-toolchain` and the dependency graph by
+`lake-manifest.json`, so verification runs against the same Mathlib
+snapshot everywhere.
+
+### What would falsify these results
+
+* **A broken proof.** Any change that invalidates a proof fails `lake build`
+  and therefore CI — the theorems cannot silently regress.
+* **An admitted or asserted result.** CI rejects admitted proofs (`sorryAx`)
+  and any custom axiom declaration. The trust base is exactly
+  `propext`, `Classical.choice`, `Quot.sound` — Lean's standard axioms.
+* **A mis-formalized statement.** What remains to trust is that each Lean
+  statement faithfully renders the informal claim. The claim → theorem map
+  above exists precisely so this can be checked: refuting a result here
+  means exhibiting a mismatch between a theorem statement and the claim it
+  formalizes — not taking the prose on faith.

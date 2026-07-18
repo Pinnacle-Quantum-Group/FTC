@@ -18,6 +18,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Guard against admitted or asserted results in sources
+        run: |
+          # `lake build` only WARNS on admitted proofs, so guard at the
+          # source level: no sorry/admit tokens, and no axiom declarations
+          # (the trust base is checked separately by the axiom audit below).
+          if grep -rnE --include='*.lean' '\b(sorry|admit)\b' formal_proofs; then
+            echo "::error::sorry/admit found in Lean sources"
+            exit 1
+          fi
+          if grep -rnE --include='*.lean' '^[[:space:]]*((noncomputable|private|protected|scoped|unsafe)[[:space:]]+)*axiom\b' formal_proofs; then
+            echo "::error::axiom declaration found in Lean sources"
+            exit 1
+          fi
+
       - name: Install elan
         run: |
           set -o pipefail
@@ -28,10 +42,10 @@ jobs:
       - name: Lean version
         run: lean --version 2>&1 | tee -a /tmp/build.log
 
-      - name: lake update
-        run: lake update 2>&1 | tee -a /tmp/build.log
-
       - name: Fetch Mathlib cache
+        # Dependencies come from the committed lake-manifest.json — no
+        # `lake update` here: results are only reproducible when the whole
+        # dependency graph is pinned by the repository itself.
         run: (lake exe cache get 2>&1 | tee -a /tmp/build.log) || true
 
       - name: lake build
@@ -59,3 +73,34 @@ jobs:
       - name: Fail step if lake build failed
         if: steps.lake_build.outcome == 'failure'
         run: exit 1
+
+      - name: Fail if any declaration was admitted
+        run: |
+          if grep -F "declaration uses 'sorry'" /tmp/build.log; then
+            echo "::error::a declaration was admitted instead of proved"
+            exit 1
+          fi
+
+      - name: Axiom audit
+        run: |
+          set -o pipefail
+          lake env lean formal_proofs/FTC/AxiomAudit.lean 2>&1 | tee /tmp/axioms.log
+          # Join pretty-printer continuation lines so bracket lists are single-line.
+          perl -0pe 's/\n\s+/ /g' /tmp/axioms.log > /tmp/axioms.flat
+          want=$(grep -c '^#print axioms' formal_proofs/FTC/AxiomAudit.lean)
+          got=$(grep -cE "depends on axioms:|does not depend on any axioms" /tmp/axioms.flat || true)
+          if [ "$want" -ne "$got" ]; then
+            echo "::error::axiom audit expected $want reports, found $got (output format drift?)"
+            exit 1
+          fi
+          { grep -oE 'depends on axioms: \[[^]]*\]' /tmp/axioms.flat || true; } \
+            | sed -E 's/^depends on axioms: \[//; s/\]$//' | tr ',' '\n' \
+            | sed -E 's/^ +//; s/ +$//' | sed '/^$/d' | sort -u > /tmp/axioms.used
+          printf '%s\n' propext Classical.choice Quot.sound | sort -u > /tmp/axioms.allowed
+          extra=$(comm -23 /tmp/axioms.used /tmp/axioms.allowed)
+          if [ -n "$extra" ]; then
+            echo "::error::theorems depend on axioms outside the allowed trust base:"
+            echo "$extra"
+            exit 1
+          fi
+          echo "Axiom audit passed: $want headline theorems within the allowed trust base"
