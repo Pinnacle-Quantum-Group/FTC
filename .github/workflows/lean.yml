@@ -27,7 +27,7 @@ jobs:
             echo "::error::sorry/admit found in Lean sources"
             exit 1
           fi
-          if grep -rnE --include='*.lean' '^[[:space:]]*((noncomputable|private|protected|scoped|unsafe)[[:space:]]+)*axiom\b' formal_proofs; then
+          if grep -rnE --include='*.lean' '^[[:space:]]*(@\[[^]]*\][[:space:]]*)*((noncomputable|private|protected|scoped|unsafe)[[:space:]]+)*axiom\b' formal_proofs; then
             echo "::error::axiom declaration found in Lean sources"
             exit 1
           fi
